@@ -1,4 +1,5 @@
 export interface AppConfig {
+    appName: string;
     deliveryFee: number;
     freeDeliveryThreshold: number;
     platformFee: number;
@@ -10,6 +11,7 @@ export interface AppConfig {
 
 // Default configuration (fallback)
 const defaultConfig: AppConfig = {
+    appName: 'Mandi Bazaar',
     deliveryFee: 40,
     freeDeliveryThreshold: 199,
     platformFee: 2,

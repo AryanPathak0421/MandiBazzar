@@ -25,6 +25,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Scroll to top on route change (except home page which handles its own scroll)
+  useEffect(() => {
+    const isHomePage = location.pathname === '/' || location.pathname === '/user/home';
+    
+    if (!isHomePage) {
+      if (mainRef.current) {
+        mainRef.current.scrollTop = 0;
+      }
+      window.scrollTo(0, 0);
+    }
+  }, [location.pathname]);
+
   // Check if location is required for current route
   const requiresLocation = () => {
     const publicRoutes = ['/login', '/signup', '/seller/login', '/seller/signup', '/delivery/login', '/delivery/signup', '/admin/login'];
@@ -301,35 +313,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
           {/* Scrollable Main Content */}
           <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pb-24 md:pb-8">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{
-                  duration: 0.2,
-                  ease: "easeInOut"
-                }}
-                className="w-full max-w-full"
-                style={{ minHeight: '100%' }}
-                onAnimationComplete={() => {
-                  const isHomePage = location.pathname === '/' || location.pathname === '/user/home';
-
-                  // Home page handles its own scroll (either restoration or starting from top)
-                  if (isHomePage) {
-                    return;
-                  }
-
-                  if (mainRef.current) {
-                    mainRef.current.scrollTop = 0;
-                  }
-                  window.scrollTo(0, 0);
-                }}
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
+            <div
+              key={location.pathname}
+              className="w-full max-w-full"
+              style={{ minHeight: '100%' }}
+            >
+              {children}
+            </div>
           </main>
 
           {/* Floating Cart Pill */}

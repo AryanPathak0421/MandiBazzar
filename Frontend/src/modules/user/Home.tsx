@@ -1,13 +1,16 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import HomeHero from "./components/HomeHero";
-import PromoStrip from "./components/PromoStrip";
+import HomsterHeader from "./components/HomsterHeader";
+import ServiceCategoriesSection from "./components/ServiceCategoriesSection";
+import SimpleBanner from "./components/SimpleBanner";
+import InlineBanner from "./components/InlineBanner";
 import LowestPricesEver from "./components/LowestPricesEver";
 import CategoryTileSection from "./components/CategoryTileSection";
 import FeaturedThisWeek from "./components/FeaturedThisWeek";
 import ProductCard from "./components/ProductCard";
 import { getHomeContent } from "../../services/api/customerHomeService";
 import { getHeaderCategoriesPublic } from "../../services/api/headerCategoryService";
+import { getCategories } from "../../services/api/categoryService";
 import { useLocation } from "../../hooks/useLocation";
 import { useLoading } from "../../context/LoadingContext";
 import PageLoader from "../../components/PageLoader";
@@ -39,6 +42,7 @@ export default function Home() {
   });
 
   const [products, setProducts] = useState<any[]>([]);
+  const [serviceCategories, setServiceCategories] = useState<any[]>([]);
 
   // Function to save scroll position before navigation
   const saveScrollPosition = () => {
@@ -128,6 +132,29 @@ export default function Home() {
 
     preloadHeaderCategories();
   }, [location?.latitude, location?.longitude, activeTab]);
+
+  // Fetch service categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const mainCategoriesResponse = await getCategories({ skipLoader: true });
+        if (mainCategoriesResponse.success && mainCategoriesResponse.data) {
+          const serviceCats = mainCategoriesResponse.data.slice(0, 8).map((cat: any) => ({
+            id: cat._id,
+            name: cat.name,
+            image: cat.image,
+            categoryId: cat._id,
+            slug: cat.slug,
+          }));
+          setServiceCategories(serviceCats);
+        }
+      } catch (error) {
+        console.error("Failed to fetch service categories", error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Restore scroll position when returning to this page
   useEffect(() => {
@@ -240,24 +267,25 @@ export default function Home() {
   }
 
   return (
-    <div className="bg-white min-h-screen pb-20 md:pb-0" ref={contentRef}>
-      {/* Hero Header with Gradient and Tabs */}
-      <HomeHero activeTab={activeTab} onTabChange={setActiveTab} />
+    <div className="bg-gradient-to-b from-green-100 via-green-50 to-green-50/20 min-h-screen pb-20 md:pb-0" ref={contentRef}>
+      {/* Homster Header */}
+      <HomsterHeader />
 
-      {/* Promo Strip */}
-      <PromoStrip activeTab={activeTab} />
+      {/* Hero Banner - Show promo banners from backend */}
+      <SimpleBanner banners={homeData.promoBanners} />
 
-      {/* LOWEST PRICES EVER Section */}
-      <LowestPricesEver activeTab={activeTab} products={homeData.lowestPrices} />
+      {/* Service Categories Section */}
+      {serviceCategories && serviceCategories.length > 0 && (
+        <ServiceCategoriesSection categories={serviceCategories} />
+      )}
 
       {/* Main content */}
-      <div
-        className="bg-emerald-50/30 -mt-2 pt-1 space-y-5 md:space-y-8 md:pt-4">
+      <div className="space-y-4 pt-4">
 
         {/* Dynamic Home Sections - Render sections created by admin (For ALL tabs) */}
         {homeData.homeSections && homeData.homeSections.length > 0 && (
           <>
-            {homeData.homeSections.map((section: any) => {
+            {homeData.homeSections.map((section: any, sectionIndex: number) => {
               const columnCount = Number(section.columns) || 4;
 
               if (section.displayType === "products" && section.data && section.data.length > 0) {
@@ -275,39 +303,56 @@ export default function Home() {
                 const gapClass = columnCount >= 4 ? "gap-2" : "gap-3 md:gap-4";
 
                 return (
-                  <div key={section.id} className="mt-6 mb-6 md:mt-8 md:mb-8">
-                    {section.title && (
-                      <h2 className="text-lg md:text-2xl font-semibold text-neutral-900 mb-3 md:mb-6 px-4 md:px-6 lg:px-8 tracking-tight capitalize">
-                        {section.title}
-                      </h2>
-                    )}
-                    <div className="px-4 md:px-6 lg:px-8">
-                      <div className={`grid ${gridClass} ${gapClass}`}>
-                        {section.data.map((product: any) => (
-                          <ProductCard
-                            key={product.id || product._id}
-                            product={product}
-                            categoryStyle={true}
-                            showBadge={true}
-                            showPackBadge={false}
-                            showStockInfo={false}
-                            compact={isCompact}
-                          />
-                        ))}
+                  <div key={section.id}>
+                    <div className="bg-white/95 backdrop-blur-sm py-6 mb-4 rounded-2xl mx-2 shadow-sm">
+                      {section.title && (
+                        <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 px-4 md:px-6 lg:px-8">
+                          {section.title}
+                        </h2>
+                      )}
+                      <div className="px-4 md:px-6 lg:px-8">
+                        <div className={`grid ${gridClass} ${gapClass}`}>
+                          {section.data.map((product: any) => (
+                            <ProductCard
+                              key={product.id || product._id}
+                              product={product}
+                              categoryStyle={true}
+                              showBadge={true}
+                              showPackBadge={false}
+                              showStockInfo={false}
+                              compact={isCompact}
+                            />
+                          ))}
+                        </div>
                       </div>
                     </div>
+                    
+                    {/* Add banner after every 2 sections */}
+                    {(sectionIndex + 1) % 2 === 0 && homeData.promoBanners && homeData.promoBanners.length > 0 && (
+                      <InlineBanner 
+                        images={homeData.promoBanners.map((banner: any) => banner.image || banner.imageUrl)} 
+                      />
+                    )}
                   </div>
                 );
               }
 
               return (
-                <CategoryTileSection
-                  key={section.id}
-                  title={section.title}
-                  tiles={section.data || []}
-                  columns={columnCount as 2 | 3 | 4 | 6 | 8}
-                  showProductCount={false}
-                />
+                <div key={section.id}>
+                  <CategoryTileSection
+                    title={section.title}
+                    tiles={section.data || []}
+                    columns={columnCount as 2 | 3 | 4 | 6 | 8}
+                    showProductCount={false}
+                  />
+                  
+                  {/* Add banner after every 2 sections */}
+                  {(sectionIndex + 1) % 2 === 0 && homeData.promoBanners && homeData.promoBanners.length > 0 && (
+                    <InlineBanner 
+                      images={homeData.promoBanners.map((banner: any) => banner.image || banner.imageUrl)} 
+                    />
+                  )}
+                </div>
               );
             })}
           </>
@@ -315,8 +360,8 @@ export default function Home() {
 
         {/* Filtered Products Section (Legacy fallback if no dynamic sections, or complementary) */}
         {activeTab !== "all" && filteredProducts.length > 0 && homeData.homeSections?.length === 0 && (
-          <div data-products-section className="mt-6 mb-6 md:mt-8 md:mb-8">
-            <h2 className="text-lg md:text-2xl font-semibold text-neutral-900 mb-3 md:mb-6 px-4 md:px-6 lg:px-8 tracking-tight capitalize">
+          <div data-products-section className="bg-white/95 backdrop-blur-sm py-6 mb-4 rounded-2xl mx-2 shadow-sm">
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 px-4 md:px-6 lg:px-8 capitalize">
               {activeTab === "grocery" ? "Grocery Items" : activeTab}
             </h2>
             <div className="px-4 md:px-6 lg:px-8">
@@ -339,7 +384,7 @@ export default function Home() {
         {/* Bestsellers Section (Global Only) */}
         {activeTab === "all" && (
           <>
-            <div className="mt-2 md:mt-4">
+            <div className="bg-white/95 backdrop-blur-sm py-6 mb-4 rounded-2xl mx-2 shadow-sm">
               <CategoryTileSection
                 title="Bestsellers"
                 tiles={
@@ -363,16 +408,32 @@ export default function Home() {
               />
             </div>
 
+            {/* Inline Banner after Bestsellers */}
+            {homeData.promoBanners && homeData.promoBanners.length > 0 && (
+              <InlineBanner 
+                images={homeData.promoBanners.map((banner: any) => banner.image || banner.imageUrl)} 
+              />
+            )}
+
             {/* Featured this week Section */}
-            <FeaturedThisWeek />
+            <div className="bg-white/95 backdrop-blur-sm py-6 mb-4 rounded-2xl mx-2 shadow-sm">
+              <FeaturedThisWeek />
+            </div>
+
+            {/* Inline Banner after Featured */}
+            {homeData.promoBanners && homeData.promoBanners.length > 0 && (
+              <InlineBanner 
+                images={homeData.promoBanners.map((banner: any) => banner.image || banner.imageUrl)} 
+              />
+            )}
 
             {/* Shop by Store Section */}
-            <div className="mb-6 mt-6 md:mb-8 md:mt-8">
-              <h2 className="text-lg md:text-2xl font-semibold text-neutral-900 mb-3 md:mb-6 px-4 md:px-6 lg:px-8 tracking-tight">
+            <div className="bg-white/95 backdrop-blur-sm py-6 mb-4 rounded-2xl mx-2 shadow-sm">
+              <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 px-4 md:px-6 lg:px-8">
                 Shop by Store
               </h2>
               <div className="px-4 md:px-6 lg:px-8">
-                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 md:gap-4">
+                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 md:gap-4">
                   {(homeData.shops || []).map((tile: any) => {
                     const hasImages =
                       tile.image ||
@@ -388,7 +449,7 @@ export default function Home() {
                             saveScrollPosition();
                             navigate(`/store/${storeSlug}`);
                           }}
-                          className="block bg-white rounded-xl shadow-sm border border-neutral-200 hover:shadow-md transition-shadow cursor-pointer overflow-hidden">
+                          className="block bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg hover:scale-105 transition-all cursor-pointer overflow-hidden">
                           {hasImages ? (
                             <img
                               src={
@@ -398,11 +459,11 @@ export default function Home() {
                                   : "")
                               }
                               alt={tile.name}
-                              className="w-full h-16 object-cover"
+                              className="w-full h-20 object-cover"
                             />
                           ) : (
                             <div
-                              className={`w-full h-16 flex items-center justify-center text-3xl text-neutral-300 ${tile.bgColor || "bg-neutral-50"
+                              className={`w-full h-20 flex items-center justify-center text-3xl font-bold ${tile.bgColor || "bg-gradient-to-br from-orange-100 to-orange-200 text-orange-600"
                                 }`}>
                               {tile.name.charAt(0)}
                             </div>
@@ -410,8 +471,8 @@ export default function Home() {
                         </div>
 
                         {/* Tile name - outside card */}
-                        <div className="mt-1.5 text-center">
-                          <span className="text-xs font-semibold text-neutral-900 line-clamp-2 leading-tight">
+                        <div className="mt-2 text-center">
+                          <span className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">
                             {tile.name}
                           </span>
                         </div>

@@ -85,8 +85,8 @@ export default function CategoryTileSection({
   const gapClass = columns >= 6 ? "gap-1.5 md:gap-2.5" : "gap-2.5 md:gap-4";
 
   return (
-    <div className="mb-6 md:mb-8 mt-0 overflow-visible">
-      <h2 className="text-lg md:text-2xl font-semibold text-neutral-900 mb-3 md:mb-6 px-4 md:px-6 lg:px-8 tracking-tight">
+    <div className="overflow-visible">
+      <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 px-4 md:px-6 lg:px-8">
         {title}
       </h2>
       <div className="px-4 md:px-6 lg:px-8 overflow-visible">
@@ -140,7 +140,7 @@ export default function CategoryTileSection({
                       handleTileClick(tile);
                     }
                   }}
-                  className={`block bg-white rounded-xl shadow-sm border border-neutral-200 hover:shadow-md transition-shadow h-full ${showProductCount ? "px-2.5" : "px-1.5"
+                  className={`block bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg hover:scale-105 transition-all h-full ${showProductCount ? "px-2.5 py-2" : "px-1.5 py-1.5"
                     }`}>
                   {/* Image - Single image for non-bestsellers, 2x2 grid for bestsellers */}
                   <div
