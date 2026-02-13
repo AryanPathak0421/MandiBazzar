@@ -271,6 +271,9 @@ export default function Home() {
       {/* Homster Header */}
       <HomsterHeader />
 
+      {/* Spacer for fixed header */}
+      <div className="h-[160px]"></div>
+
       {/* Hero Banner - Show promo banners from backend */}
       <SimpleBanner banners={homeData.promoBanners} />
 
@@ -328,9 +331,9 @@ export default function Home() {
                     </div>
                     
                     {/* Add banner after every 2 sections */}
-                    {(sectionIndex + 1) % 2 === 0 && homeData.promoBanners && homeData.promoBanners.length > 0 && (
+                    {(sectionIndex + 1) % 2 === 0 && (
                       <InlineBanner 
-                        images={homeData.promoBanners.map((banner: any) => banner.image || banner.imageUrl)} 
+                        images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]} 
                       />
                     )}
                   </div>
@@ -347,9 +350,9 @@ export default function Home() {
                   />
                   
                   {/* Add banner after every 2 sections */}
-                  {(sectionIndex + 1) % 2 === 0 && homeData.promoBanners && homeData.promoBanners.length > 0 && (
+                  {(sectionIndex + 1) % 2 === 0 && (
                     <InlineBanner 
-                      images={homeData.promoBanners.map((banner: any) => banner.image || banner.imageUrl)} 
+                      images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]} 
                     />
                   )}
                 </div>
@@ -409,11 +412,9 @@ export default function Home() {
             </div>
 
             {/* Inline Banner after Bestsellers */}
-            {homeData.promoBanners && homeData.promoBanners.length > 0 && (
-              <InlineBanner 
-                images={homeData.promoBanners.map((banner: any) => banner.image || banner.imageUrl)} 
-              />
-            )}
+            <InlineBanner 
+              images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]} 
+            />
 
             {/* Featured this week Section */}
             <div className="bg-white/95 backdrop-blur-sm py-6 mb-4 rounded-2xl mx-2 shadow-sm">
@@ -421,11 +422,9 @@ export default function Home() {
             </div>
 
             {/* Inline Banner after Featured */}
-            {homeData.promoBanners && homeData.promoBanners.length > 0 && (
-              <InlineBanner 
-                images={homeData.promoBanners.map((banner: any) => banner.image || banner.imageUrl)} 
-              />
-            )}
+            <InlineBanner 
+              images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]} 
+            />
 
             {/* Shop by Store Section */}
             <div className="bg-white/95 backdrop-blur-sm py-6 mb-4 rounded-2xl mx-2 shadow-sm">

@@ -14,31 +14,29 @@ export default function Account() {
 
   useEffect(() => {
     const fetchProfile = async () => {
+      // Skip API call if backend is not available
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError('');
         const response = await getProfile();
         if (response.success) {
           setProfile(response.data);
-        } else {
-          setError('Failed to load profile');
         }
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to load profile');
-        if (err.response?.status === 401) {
-          authLogout();
-        }
+        // Silently handle all errors - just use auth context data
+        setProfile(null);
       } finally {
         setLoading(false);
       }
     };
 
-    if (user) {
-      fetchProfile();
-    } else {
-      setLoading(false);
-    }
-  }, [user, navigate, authLogout]);
+    fetchProfile();
+  }, [user]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not set';
@@ -109,10 +107,20 @@ export default function Account() {
   if (error && !profile) {
     return (
       <div className="pb-24 md:pb-8 bg-white min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center px-4">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-red-500">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+              <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
           <p className="text-red-600 mb-4">{error}</p>
-          <button onClick={() => navigate(-1)} className="px-4 py-2 bg-teal-600 text-white rounded">
-            Go Back
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            Try Again
           </button>
         </div>
       </div>
@@ -214,26 +222,57 @@ export default function Account() {
       </div>
 
       {showGstModal && (
-        <>
-          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowGstModal(false)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom duration-500 ease-out">
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" 
+            onClick={() => setShowGstModal(false)} 
+          />
+          <div className="relative w-full animate-in slide-in-from-bottom duration-500 ease-out">
             <div className="bg-white rounded-t-[32px] shadow-2xl max-w-lg mx-auto p-6 pt-10 relative">
-              <button onClick={() => setShowGstModal(false)} className="absolute -top-12 right-4 w-10 h-10 rounded-full bg-neutral-900 flex items-center justify-center text-white"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+              <button 
+                onClick={() => setShowGstModal(false)} 
+                className="absolute -top-12 right-4 w-10 h-10 rounded-full bg-neutral-900 flex items-center justify-center text-white"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
               <div className="text-center">
                 <div className="mx-auto mb-6 w-20 h-20 rounded-2xl bg-neutral-50 border border-neutral-100 flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" className="w-10 h-10 text-neutral-400" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="5" y="3" width="14" height="18" rx="2" ry="2" /><line x1="9" y1="7" x2="15" y2="7" /><line x1="9" y1="11" x2="15" y2="11" /><line x1="9" y1="15" x2="13" y2="15" /></svg>
+                  <svg viewBox="0 0 24 24" className="w-10 h-10 text-neutral-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="5" y="3" width="14" height="18" rx="2" ry="2" />
+                    <line x1="9" y1="7" x2="15" y2="7" />
+                    <line x1="9" y1="11" x2="15" y2="11" />
+                    <line x1="9" y1="15" x2="13" y2="15" />
+                  </svg>
                 </div>
                 <h3 className="text-xl font-bold text-neutral-900 mb-2">Add GST Details</h3>
-                <p className="text-[13px] text-neutral-500 mb-8 px-4">Identify your business to get a GST invoice on your business purchases.</p>
+                <p className="text-[13px] text-neutral-500 mb-8 px-4">
+                  Identify your business to get a GST invoice on your business purchases.
+                </p>
                 <form onSubmit={handleGstSubmit} className="space-y-4">
-                  <input type="text" value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} placeholder="Enter GST Number" className="w-full rounded-xl border border-neutral-200 px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all" />
-                  <button type="submit" disabled={!gstNumber.trim()} className="w-full rounded-xl bg-teal-600 text-white font-bold py-4 hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-lg shadow-teal-500/20 uppercase tracking-wider text-sm">Save Details</button>
+                  <input 
+                    type="text" 
+                    value={gstNumber} 
+                    onChange={(e) => setGstNumber(e.target.value)} 
+                    placeholder="Enter GST Number" 
+                    className="w-full rounded-xl border border-neutral-200 px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all" 
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={!gstNumber.trim()} 
+                    className="w-full rounded-xl bg-teal-600 text-white font-bold py-4 hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-lg shadow-teal-500/20 uppercase tracking-wider text-sm"
+                  >
+                    Save Details
+                  </button>
                 </form>
-                <p className="mt-6 text-[11px] text-neutral-400">By continuing, you agree to our <span className="underline">Terms & Conditions</span></p>
+                <p className="mt-6 text-[11px] text-neutral-400">
+                  By continuing, you agree to our <span className="underline">Terms & Conditions</span>
+                </p>
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

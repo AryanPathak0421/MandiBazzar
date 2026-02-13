@@ -313,13 +313,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
           {/* Scrollable Main Content */}
           <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pb-24 md:pb-8">
-            <div
-              key={location.pathname}
-              className="w-full max-w-full"
-              style={{ minHeight: '100%' }}
-            >
-              {children}
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ x: 300, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -300, opacity: 0 }}
+                transition={{ 
+                  type: "tween",
+                  ease: "easeInOut",
+                  duration: 0.3
+                }}
+                className="w-full max-w-full"
+                style={{ minHeight: '100%' }}
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
           </main>
 
           {/* Floating Cart Pill */}

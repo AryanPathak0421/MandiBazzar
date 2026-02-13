@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import HomeHero from './components/HomeHero';
+import HomsterHeader from './components/HomsterHeader';
 import { useOrders } from '../../hooks/useOrders';
 import { useCart } from '../../context/CartContext';
 import { getProducts } from '../../services/api/customerProductService';
@@ -107,9 +107,11 @@ export default function OrderAgain() {
 
   return (
     <div className="pb-4">
-      {/* BESSELLERS SECTION REMOVED - If you see this comment, new code is loaded */}
       {/* Header - Same as Home page */}
-      <HomeHero />
+      <HomsterHeader />
+      
+      {/* Spacer for fixed header */}
+      <div className="h-[160px]"></div>
 
       {/* Orders Section - Show when orders exist */}
       {hasOrders && (

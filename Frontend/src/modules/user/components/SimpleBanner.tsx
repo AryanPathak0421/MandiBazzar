@@ -12,28 +12,24 @@ interface BannerProps {
 export default function SimpleBanner({ banners }: BannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   
-  const defaultBanners = [
+  // Always use local banner images
+  const displayBanners = [
     {
       id: "1",
-      image: "",
-      title: "Welcome to Our Store",
-      bgColor: "from-orange-400 to-orange-500",
+      image: "/banners/first.png",
+      title: "Welcome to Mandi Bazaar",
     },
     {
       id: "2",
-      image: "",
+      image: "/banners/second.png",
       title: "Special Offers",
-      bgColor: "from-green-400 to-green-500",
     },
     {
       id: "3",
-      image: "",
+      image: "/banners/third.png",
       title: "Fresh Products Daily",
-      bgColor: "from-blue-400 to-blue-500",
     },
   ];
-
-  const displayBanners = banners && banners.length > 0 ? banners : defaultBanners;
 
   // Auto-rotate banners
   useEffect(() => {
