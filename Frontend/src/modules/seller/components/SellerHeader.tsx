@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import mandibazaarLogo from '@assets/mandibazaar.png';
 import { useAuth } from '../../../context/AuthContext';
 
 interface SellerHeaderProps {
@@ -94,7 +93,7 @@ export default function SellerHeader({ onMenuClick, isSidebarOpen }: SellerHeade
             className="hover:opacity-80 transition-opacity"
           >
             <img
-              src={mandibazaarLogo}
+              src="/assets/logo/logo.png"
               alt="Mandi Bazaar"
               className="h-10 sm:h-12 w-auto object-contain cursor-pointer"
               style={{ maxWidth: '200px' }}
