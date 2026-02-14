@@ -54,8 +54,8 @@ export const initializeSocket = (httpServer: HttpServer) => {
 
                     // Default production origins if FRONTEND_URL not set
                     const defaultOrigins = [
-                        "https://www.apnasabjiwala.com",
-                        "https://apnasabjiwala.com",
+                        "https://www.mandibazaar.com",
+                        "https://mandibazaar.com",
                     ];
 
                     const allAllowedOrigins = allowedOrigins.length > 0

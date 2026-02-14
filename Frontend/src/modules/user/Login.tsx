@@ -390,7 +390,7 @@ export default function Login() {
 
         {/* Privacy Text */}
         <p className="text-[9px] sm:text-[10px] text-neutral-500 text-center max-w-sm leading-tight px-4 relative z-10 pb-1">
-          Access your saved addresses from Apna Sabji Wala automatically!
+          Access your saved addresses from Mandi Bazaar automatically!
         </p>
       </div>
     </div>

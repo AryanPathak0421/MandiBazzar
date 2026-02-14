@@ -20,9 +20,9 @@ const httpServer = createServer(app);
 
 // Simple CORS configuration - Standard and reliable
 const allowedOrigins = [
-  "https://www.apnasabjiwala.com",
-  "https://apnasabjiwala.com",
-  "https://apna-sabji-wala.vercel.app/",
+  "https://www.mandibazaar.com",
+  "https://mandibazaar.com",
+  "https://mandi-bazaar.vercel.app/",
   // Add more origins from environment variable if needed
   ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",").map(url => url.trim()) : [])
 ];
@@ -81,7 +81,7 @@ app.set("io", io);
 // Routes
 app.get("/", (_req: Request, res: Response) => {
   res.json({
-    message: "Apna Sabji Wala API Server is running!",
+    message: "Mandi Bazaar API Server is running!",
     version: "1.0.0",
     socketIO: "Listening for WebSocket connections",
   });
@@ -112,7 +112,7 @@ async function startServer() {
   initializeFirebaseAdmin();
 
   httpServer.listen(PORT, () => {
-    console.log("\n\x1b[32m✓\x1b[0m \x1b[1mApna Sabji Wala Server Started\x1b[0m");
+    console.log("\n\x1b[32m✓\x1b[0m \x1b[1mMandi Bazaar Server Started\x1b[0m");
     console.log(`   \x1b[36mPort:\x1b[0m http://localhost:${PORT}`);
     console.log(
       `   \x1b[36mEnvironment:\x1b[0m ${process.env.NODE_ENV || "development"}`
