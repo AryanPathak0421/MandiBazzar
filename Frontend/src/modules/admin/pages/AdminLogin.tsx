@@ -95,7 +95,7 @@ export default function AdminLogin() {
           <div className="relative z-10 flex flex-col items-center">
             <div className="w-28 h-28 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-2 flex items-center justify-center mb-4 border border-green-400/30 transform hover:scale-105 transition-transform duration-300">
               <img
-                src="/assets/mandibazaar.png"
+                src="/assets/logo/logo.png"
                 alt="Mandi Bazaar"
                 className="w-full h-full object-contain"
               />
