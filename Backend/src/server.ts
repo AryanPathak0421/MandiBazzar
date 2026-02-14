@@ -22,7 +22,7 @@ const httpServer = createServer(app);
 const allowedOrigins = [
   "https://www.mandibazaar.com",
   "https://mandibazaar.com",
-  "https://mandi-bazaar.vercel.app/",
+  "https://mandi-bazzar.vercel.app",
   // Add more origins from environment variable if needed
   ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",").map(url => url.trim()) : [])
 ];
