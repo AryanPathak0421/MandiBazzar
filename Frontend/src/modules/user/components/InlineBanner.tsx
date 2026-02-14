@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface InlineBannerProps {
   images: string[];
   autoPlayInterval?: number;
 }
 
-export default function InlineBanner({ images, autoPlayInterval = 4000 }: InlineBannerProps) {
+export default function InlineBanner({ images, autoPlayInterval = 8000 }: InlineBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Default fallback images if none provided
   const defaultImages = [
@@ -17,11 +18,26 @@ export default function InlineBanner({ images, autoPlayInterval = 4000 }: Inline
 
   const displayImages = images && images.length > 0 ? images : defaultImages;
 
+  // Auto-scroll every 8 seconds
   useEffect(() => {
     if (displayImages.length <= 1) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % displayImages.length);
+      setCurrentIndex((prev) => {
+        const nextIndex = (prev + 1) % displayImages.length;
+        
+        // Scroll to next banner
+        if (scrollContainerRef.current) {
+          const container = scrollContainerRef.current;
+          const bannerWidth = container.offsetWidth;
+          container.scrollTo({
+            left: bannerWidth * nextIndex,
+            behavior: 'smooth'
+          });
+        }
+        
+        return nextIndex;
+      });
     }, autoPlayInterval);
 
     return () => clearInterval(interval);
@@ -31,36 +47,41 @@ export default function InlineBanner({ images, autoPlayInterval = 4000 }: Inline
 
   return (
     <div className="px-4 my-4">
-      <div className="relative w-full h-28 md:h-36 rounded-xl overflow-hidden shadow-md">
+      {/* Horizontal Scrollable Container */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory" 
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
         {displayImages.map((image, index) => (
-          <img
+          <div
             key={index}
-            src={image}
-            alt={`Banner ${index + 1}`}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
-              index === currentIndex ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        ))}
-        
-        {/* Dots indicator */}
-        {displayImages.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
-            {displayImages.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentIndex(index)}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${
-                  index === currentIndex
-                    ? "bg-white w-4 shadow-md"
-                    : "bg-white/60"
-                }`}
-                aria-label={`Go to slide ${index + 1}`}
+            className="flex-shrink-0 w-full snap-center"
+          >
+            <div className="relative rounded-2xl overflow-hidden shadow-md border border-green-100" style={{ height: "170px" }}>
+              <img
+                src={image}
+                alt={`Banner ${index + 1}`}
+                className="w-full h-full object-cover"
               />
-            ))}
+            </div>
           </div>
-        )}
+        ))}
       </div>
+      
+      {/* Scroll Indicator Dots */}
+      {displayImages.length > 1 && (
+        <div className="flex justify-center gap-1.5 mt-3">
+          {displayImages.map((_, index) => (
+            <div
+              key={index}
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                index === currentIndex ? 'bg-green-600' : 'bg-green-300'
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
