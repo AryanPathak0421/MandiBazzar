@@ -1,4 +1,4 @@
-# apnasabjiwala UI Component Specifications
+# mandibazaar UI Component Specifications
 
 ## Loaders
 

@@ -344,7 +344,7 @@ export default function CategoryFormModal({
       // Upload image if a new file is selected
       if (imageFile) {
         setUploading(true);
-        const imageResult = await uploadImage(imageFile, "apnasabjiwala/categories");
+        const imageResult = await uploadImage(imageFile, "mandibazaar/categories");
         imageUrl = imageResult.secureUrl;
         setUploading(false);
       }

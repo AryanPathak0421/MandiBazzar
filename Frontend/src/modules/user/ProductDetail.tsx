@@ -890,7 +890,7 @@ export default function ProductDetail() {
                         Customer Care Details:
                       </span>
                       <span className="text-xs text-neutral-600">
-                        Email: help@apnasabjiwala.com
+                        Email: help@mandibazaar.com
                       </span>
                     </div>
                     <div className="flex items-start">
@@ -930,7 +930,7 @@ export default function ProductDetail() {
                           Seller:
                         </span>
                         <span className="text-xs text-neutral-600 leading-relaxed flex-1">
-                          Apna Sabji Wala Partner (
+                          Mandi Bazaar Partner (
                           {product.sellerId.slice(-6).toUpperCase()})
                         </span>
                       </div>

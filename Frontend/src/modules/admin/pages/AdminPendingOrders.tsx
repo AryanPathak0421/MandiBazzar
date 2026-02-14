@@ -924,7 +924,7 @@ export default function AdminPendingOrders() {
       <div className="text-center py-4 text-xs sm:text-sm text-neutral-600">
         Copyright Â© 2025. Developed By{" "}
         <Link to="/" className="text-blue-600 hover:text-blue-700">
-          Apna Sabji Wala - 10 Minute App
+          Mandi Bazaar - 10 Minute App
         </Link>
       </div>
 

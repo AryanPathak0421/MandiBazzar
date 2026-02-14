@@ -421,7 +421,7 @@ export default function SellerAddProduct() {
       if (mainImageFile) {
         const mainImageResult = await uploadImage(
           mainImageFile,
-          "apnasabjiwala/products"
+          "mandibazaar/products"
         );
         mainImageUrl = mainImageResult.secureUrl;
         setFormData((prev) => ({
@@ -434,7 +434,7 @@ export default function SellerAddProduct() {
       if (galleryImageFiles.length > 0) {
         const galleryResults = await uploadImages(
           galleryImageFiles,
-          "apnasabjiwala/products/gallery"
+          "mandibazaar/products/gallery"
         );
         galleryImageUrls = galleryResults.map((result) => result.secureUrl);
         setFormData((prev) => ({ ...prev, galleryImageUrls }));

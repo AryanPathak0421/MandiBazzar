@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import apnaSabjiWalaLogo from '@assets/apnasabjiwala.png';
+import mandibazaarLogo from '@assets/mandibazaar.png';
 
 interface AdminHeaderProps {
   onMenuClick: () => void;
@@ -74,14 +74,14 @@ export default function AdminHeader({ onMenuClick, isSidebarOpen }: AdminHeaderP
               </svg>
             )}
           </button>
-          {/* Apna Sabji Wala Logo */}
+          {/* Mandi Bazaar Logo */}
           <button
             onClick={handleLogoClick}
             className="hover:opacity-80 transition-opacity"
           >
             <img
-              src={apnaSabjiWalaLogo}
-              alt="Apna Sabji Wala"
+              src={mandibazaarLogo}
+              alt="Mandi Bazaar"
               className="h-10 sm:h-12 w-auto object-contain cursor-pointer"
               style={{ maxWidth: '200px' }}
             />
