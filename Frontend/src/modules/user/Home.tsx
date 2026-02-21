@@ -8,9 +8,11 @@ import LowestPricesEver from "./components/LowestPricesEver";
 import CategoryTileSection from "./components/CategoryTileSection";
 import FeaturedThisWeek from "./components/FeaturedThisWeek";
 import ProductCard from "./components/ProductCard";
+import InlineCategoryFlow from "./components/InlineCategoryFlow";
 import { getHomeContent } from "../../services/api/customerHomeService";
 import { getHeaderCategoriesPublic } from "../../services/api/headerCategoryService";
-import { getCategories } from "../../services/api/categoryService";
+import { getCategories, getSubcategories } from "../../services/api/categoryService";
+import { getProducts as getCustomerProducts } from "../../services/api/customerProductService";
 import { useLocation } from "../../hooks/useLocation";
 import { useLoading } from "../../context/LoadingContext";
 import PageLoader from "../../components/PageLoader";
@@ -34,7 +36,7 @@ export default function Home() {
   const [homeData, setHomeData] = useState<any>({
     bestsellers: [],
     categories: [],
-    homeSections: [], // Dynamic sections created by admin
+    categoryHierarchy: [], // Category → Subcategory → Product hierarchy
     shops: [],
     promoBanners: [],
     trending: [],
@@ -42,7 +44,24 @@ export default function Home() {
   });
 
   const [products, setProducts] = useState<any[]>([]);
-  const [serviceCategories, setServiceCategories] = useState<any[]>([]);
+
+  // Memoize service categories from homeData to ensure filtering is respected
+  const serviceCategories = useMemo(() => {
+    if (!homeData.categories) return [];
+    return homeData.categories.map((cat: any) => ({
+      id: cat._id || cat.id,
+      name: cat.name,
+      image: cat.image,
+      categoryId: cat._id || cat.id,
+      slug: cat.slug,
+    }));
+  }, [homeData.categories]);
+
+  // State for Inline Category Flow
+  const [activeInlineCategory, setActiveInlineCategory] = useState<any>(null);
+  const [inlineSubcategories, setInlineSubcategories] = useState<any[]>([]);
+  const [inlineProducts, setInlineProducts] = useState<any[]>([]);
+  const [isInlineLoading, setIsInlineLoading] = useState(false);
 
   // Function to save scroll position before navigation
   const saveScrollPosition = () => {
@@ -133,28 +152,40 @@ export default function Home() {
     preloadHeaderCategories();
   }, [location?.latitude, location?.longitude, activeTab]);
 
-  // Fetch service categories
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const mainCategoriesResponse = await getCategories({ skipLoader: true });
-        if (mainCategoriesResponse.success && mainCategoriesResponse.data) {
-          const serviceCats = mainCategoriesResponse.data.slice(0, 8).map((cat: any) => ({
-            id: cat._id,
-            name: cat.name,
-            image: cat.image,
-            categoryId: cat._id,
-            slug: cat.slug,
-          }));
-          setServiceCategories(serviceCats);
-        }
-      } catch (error) {
-        console.error("Failed to fetch service categories", error);
-      }
-    };
+  // Removed independent category fetching to ensure global Fruits/Vegetables filter is respected
 
-    fetchCategories();
-  }, []);
+  const handleCategorySelect = async (category: any) => {
+    const categoryId = category.categoryId || category.id || category._id;
+
+    // Toggle off if clicking the same one
+    if (activeInlineCategory && (activeInlineCategory.categoryId || activeInlineCategory.id) === categoryId) {
+      setActiveInlineCategory(null);
+      return;
+    }
+
+    setActiveInlineCategory(category);
+    setIsInlineLoading(true);
+
+    try {
+      // Fetch subcategories and products in parallel
+      const [subcatsRes, productsRes] = await Promise.all([
+        getSubcategories(categoryId),
+        getCustomerProducts({ category: categoryId, latitude: location?.latitude, longitude: location?.longitude })
+      ]);
+
+      if (subcatsRes.success) {
+        setInlineSubcategories(subcatsRes.data);
+      }
+
+      if (productsRes.success) {
+        setInlineProducts(productsRes.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch category details for inline flow:", err);
+    } finally {
+      setIsInlineLoading(false);
+    }
+  };
 
   // Restore scroll position when returning to this page
   useEffect(() => {
@@ -242,7 +273,7 @@ export default function Home() {
     [activeTab, products]
   );
 
-  if (loading && !products.length && !homeData.homeSections?.length) {
+  if (loading && !products.length && !homeData.categoryHierarchy?.length) {
     return <PageLoader />; // Let the global IconLoader handle the initial loading state
   }
 
@@ -279,90 +310,71 @@ export default function Home() {
 
       {/* Service Categories Section */}
       {serviceCategories && serviceCategories.length > 0 && (
-        <ServiceCategoriesSection categories={serviceCategories} />
+        <>
+          <ServiceCategoriesSection
+            categories={serviceCategories}
+            activeCategoryId={activeInlineCategory ? (activeInlineCategory.categoryId || activeInlineCategory.id) : null}
+            onCategorySelect={handleCategorySelect}
+          />
+
+          {/* Inline Category Flow (Subcategories + Products) */}
+          {activeInlineCategory && (
+            <InlineCategoryFlow
+              categoryId={activeInlineCategory.categoryId || activeInlineCategory.id}
+              categorySlug={activeInlineCategory.slug}
+              categoryName={activeInlineCategory.name}
+              subcategories={inlineSubcategories}
+              products={inlineProducts}
+              isLoading={isInlineLoading}
+            />
+          )}
+        </>
       )}
 
       {/* Main content */}
       <div className="space-y-4 pt-4">
 
-        {/* Dynamic Home Sections - Render sections created by admin (For ALL tabs) */}
-        {homeData.homeSections && homeData.homeSections.length > 0 && (
+        {/* Category Hierarchy - Category → Subcategory → Products */}
+        {homeData.categoryHierarchy && homeData.categoryHierarchy.length > 0 && (
           <>
-            {homeData.homeSections.map((section: any, sectionIndex: number) => {
-              const columnCount = Number(section.columns) || 4;
-
-              if (section.displayType === "products" && section.data && section.data.length > 0) {
-                // Strict column mapping as requested - applies to ALL screen sizes including mobile
-                const gridClass = {
-                  2: "grid-cols-2",
-                  3: "grid-cols-3",
-                  4: "grid-cols-4",
-                  6: "grid-cols-6",
-                  8: "grid-cols-8"
-                }[columnCount] || "grid-cols-4";
-
-                // Use compact mode for 4 or more columns to fit content on mobile
-                const isCompact = columnCount >= 4;
-                const gapClass = columnCount >= 4 ? "gap-2" : "gap-3 md:gap-4";
-
+            {homeData.categoryHierarchy
+              .filter((cat: any) => {
+                const catId = (cat.id || cat._id)?.toString();
+                const activeId = (activeInlineCategory?.categoryId || activeInlineCategory?.id)?.toString();
+                return catId !== activeId;
+              })
+              .map((category: any, catIndex: number) => {
                 return (
-                  <div key={section.id}>
-                    <div className="bg-white/95 backdrop-blur-sm py-6 mb-4 rounded-2xl mx-2 shadow-sm">
-                      {section.title && (
-                        <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 px-4 md:px-6 lg:px-8">
-                          {section.title}
-                        </h2>
+                  <div key={category.id || category._id}>
+                    <InlineCategoryFlow
+                      categoryId={category.id || category._id}
+                      categorySlug={category.slug}
+                      categoryName={category.name}
+                      subcategories={category.subcategories || []}
+                      products={(category.subcategories || []).flatMap((sub: any) =>
+                        (sub.products || []).map((p: any) => ({
+                          ...p,
+                          // Ensure product has subcategory ID for tab matching
+                          subcategoryId: (sub._id || sub.id)?.toString()
+                        }))
                       )}
-                      <div className="px-4 md:px-6 lg:px-8">
-                        <div className={`grid ${gridClass} ${gapClass}`}>
-                          {section.data.map((product: any) => (
-                            <ProductCard
-                              key={product.id || product._id}
-                              product={product}
-                              categoryStyle={true}
-                              showBadge={true}
-                              showPackBadge={false}
-                              showStockInfo={false}
-                              compact={isCompact}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Add banner after every 2 sections */}
-                    {(sectionIndex + 1) % 2 === 0 && (
-                      <InlineBanner 
-                        images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]} 
+                      isLoading={false}
+                    />
+
+                    {/* Add banner after every 2 categories */}
+                    {(catIndex + 1) % 2 === 0 && (
+                      <InlineBanner
+                        images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]}
                       />
                     )}
                   </div>
                 );
-              }
-
-              return (
-                <div key={section.id}>
-                  <CategoryTileSection
-                    title={section.title}
-                    tiles={section.data || []}
-                    columns={columnCount as 2 | 3 | 4 | 6 | 8}
-                    showProductCount={false}
-                  />
-                  
-                  {/* Add banner after every 2 sections */}
-                  {(sectionIndex + 1) % 2 === 0 && (
-                    <InlineBanner 
-                      images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]} 
-                    />
-                  )}
-                </div>
-              );
-            })}
+              })}
           </>
         )}
 
-        {/* Filtered Products Section (Legacy fallback if no dynamic sections, or complementary) */}
-        {activeTab !== "all" && filteredProducts.length > 0 && homeData.homeSections?.length === 0 && (
+        {/* Filtered Products Section (Legacy fallback if no category hierarchy, or complementary) */}
+        {activeTab !== "all" && filteredProducts.length > 0 && homeData.categoryHierarchy?.length === 0 && (
           <div data-products-section className="bg-white/95 backdrop-blur-sm py-6 mb-4 rounded-2xl mx-2 shadow-sm">
             <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 px-4 md:px-6 lg:px-8 capitalize">
               {activeTab === "grocery" ? "Grocery Items" : activeTab}
@@ -412,8 +424,8 @@ export default function Home() {
             </div>
 
             {/* Inline Banner after Bestsellers */}
-            <InlineBanner 
-              images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]} 
+            <InlineBanner
+              images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]}
             />
 
             {/* Featured this week Section */}
@@ -422,8 +434,8 @@ export default function Home() {
             </div>
 
             {/* Inline Banner after Featured */}
-            <InlineBanner 
-              images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]} 
+            <InlineBanner
+              images={["/banners/first.png", "/banners/second.png", "/banners/third.png"]}
             />
 
             {/* Shop by Store Section */}
@@ -487,3 +499,4 @@ export default function Home() {
     </div>
   );
 }
+

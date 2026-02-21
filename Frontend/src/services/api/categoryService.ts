@@ -11,8 +11,6 @@ export interface Category {
   _id: string;
   name: string;
   image?: string;
-  parentId?: string;
-  headerCategoryId?: string | any; // Can be string ID or populated object
   isBestseller: boolean;
   hasWarning: boolean;
   groupCategory?: string;
@@ -31,17 +29,8 @@ export interface SubCategory {
   subcategoryName: string;
   subcategoryImage?: string;
   totalProduct?: number;
-  parentId?: string;
 }
 
-export interface SubSubCategory {
-  _id: string;
-  name: string;
-  subCategory: string;
-  image?: string;
-  order: number;
-  isActive: boolean;
-}
 
 export interface CategoryWithSubcategories extends Category {
   subcategories: SubCategory[];
@@ -118,19 +107,6 @@ export const getSubcategories = async (
   return response.data;
 };
 
-/**
- * Get sub-subcategories by subcategory ID
- */
-export const getSubSubCategories = async (
-  subCategoryId: string,
-  params?: { search?: string; isActive?: boolean }
-): Promise<ApiResponse<SubSubCategory[]>> => {
-  const response = await api.get<ApiResponse<SubSubCategory[]>>(
-    `/categories/${subCategoryId}/sub-subcategories`,
-    { params }
-  );
-  return response.data;
-};
 
 /**
  * Get all subcategories (across all categories)

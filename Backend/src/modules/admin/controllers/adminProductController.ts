@@ -23,8 +23,6 @@ export const createCategory = asyncHandler(
       isBestseller,
       hasWarning,
       groupCategory,
-      parentId,
-      headerCategoryId,
       status = "Active",
     } = req.body;
 
@@ -35,82 +33,10 @@ export const createCategory = asyncHandler(
       });
     }
 
-    let finalHeaderCategoryId = headerCategoryId;
-
-    // Validate parent if provided
-    if (parentId) {
-      // Cannot set parent to self
-      if (parentId === req.body._id) {
-        return res.status(400).json({
-          success: false,
-          message: "Cannot set category as its own parent",
-        });
-      }
-
-      const parent = await Category.findById(parentId);
-      if (!parent) {
-        return res.status(400).json({
-          success: false,
-          message: "Parent category not found",
-        });
-      }
-
-      if (parent.status !== "Active") {
-        return res.status(400).json({
-          success: false,
-          message: "Parent category must be active",
-        });
-      }
-
-      // Inherit headerCategoryId from parent if not explicitly provided
-      if (!finalHeaderCategoryId && parent.headerCategoryId) {
-        finalHeaderCategoryId = parent.headerCategoryId.toString();
-      }
-
-      // If parent doesn't have headerCategoryId, subcategory cannot be created
-      if (!finalHeaderCategoryId) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Parent category does not have a header category assigned. Please assign a header category to the parent category first.",
-        });
-      }
-    }
-
-    // Validate headerCategoryId (required for root categories)
-    if (!finalHeaderCategoryId && !parentId) {
-      return res.status(400).json({
-        success: false,
-        message: "Header category is required for root categories",
-      });
-    }
-
-    // Validate headerCategory exists and is Published
-    if (finalHeaderCategoryId) {
-      const headerCategory = await HeaderCategory.findById(
-        finalHeaderCategoryId
-      );
-      if (!headerCategory) {
-        return res.status(400).json({
-          success: false,
-          message: "Header category not found",
-        });
-      }
-
-      if (headerCategory.status !== "Published") {
-        return res.status(400).json({
-          success: false,
-          message: "Header category must be Published",
-        });
-      }
-    }
-
     // Auto-calculate order if not provided
     let finalOrder = order;
     if (finalOrder === undefined || finalOrder === null) {
-      const lastCategory = await Category.findOne({
-        parentId: parentId || null,
-      })
+      const lastCategory = await Category.findOne({})
         .sort({ order: -1 })
         .limit(1);
       finalOrder = lastCategory ? (lastCategory.order || 0) + 1 : 0;
@@ -123,8 +49,6 @@ export const createCategory = asyncHandler(
       isBestseller: isBestseller || false,
       hasWarning: hasWarning || false,
       groupCategory,
-      parentId: parentId || null,
-      headerCategoryId: finalHeaderCategoryId || null,
       commissionRate: req.body.commissionRate || 0,
       status,
     });
@@ -151,28 +75,15 @@ export const getCategories = asyncHandler(
       search,
       sortBy = "order",
       sortOrder = "asc",
-      parentId,
-      includeChildren = "false",
       status,
-      headerCategoryId,
     } = req.query;
 
     const query: any = {};
     if (search) {
       query.name = { $regex: search as string, $options: "i" };
     }
-    if (parentId !== undefined) {
-      if (parentId === "null" || parentId === null || parentId === "") {
-        query.parentId = null;
-      } else {
-        query.parentId = parentId;
-      }
-    }
     if (status) {
       query.status = status;
-    }
-    if (headerCategoryId) {
-      query.headerCategoryId = headerCategoryId;
     }
 
     const sort: any = {};
@@ -180,26 +91,10 @@ export const getCategories = asyncHandler(
 
     // Use .lean() for faster execution
     const categories = await Category.find(query)
-      .populate("parentId", "name")
-      .populate("headerCategoryId", "name status")
       .sort(sort)
       .lean();
 
-    // Optimize counting: Fetch all child counts in one aggregation
-    // This avoids N+1 problem
     const categoryIds = categories.map((c: any) => c._id);
-
-    // Aggregation to count children categories
-    const childrenCounts = await Category.aggregate([
-      { $match: { parentId: { $in: categoryIds } } },
-      { $group: { _id: "$parentId", count: { $sum: 1 } } }
-    ]);
-
-    // Map counts to dictionary
-    const childrenCountMap = new Map();
-    childrenCounts.forEach((item: any) => {
-      childrenCountMap.set(item._id.toString(), item.count);
-    });
 
     // Aggregation to count old subcategories (if still needed)
     const subCounts = await SubCategory.aggregate([
@@ -214,40 +109,12 @@ export const getCategories = asyncHandler(
 
     // Merge counts
     const categoriesWithCounts = categories.map((category: any) => {
-      const childrenCount = childrenCountMap.get(category._id.toString()) || 0;
       const subcategoryCount = subCountMap.get(category._id.toString()) || 0;
       return {
         ...category,
-        childrenCount,
-        totalSubcategories: childrenCount + subcategoryCount,
+        totalSubcategories: subcategoryCount,
       };
     });
-
-    // If includeChildren is true, build hierarchical structure
-    if (includeChildren === "true") {
-      const buildTree = (parentId: any = null): any[] => {
-        return categoriesWithCounts
-          .filter((cat: any) => {
-            const catParentId = cat.parentId
-              ? cat.parentId._id || cat.parentId
-              : null;
-            const parentIdStr = parentId ? parentId.toString() : null;
-            const catParentIdStr = catParentId ? catParentId.toString() : null;
-            return catParentIdStr === parentIdStr;
-          })
-          .map((cat: any) => ({
-            ...cat,
-            children: buildTree(cat._id),
-          }));
-      };
-
-      const tree = buildTree();
-      return res.status(200).json({
-        success: true,
-        message: "Categories fetched successfully",
-        data: tree,
-      });
-    }
 
     return res.status(200).json({
       success: true,
@@ -273,65 +140,6 @@ export const updateCategory = asyncHandler(
       });
     }
 
-    // Validate parent change if parentId is being updated
-    if (updateData.parentId !== undefined) {
-      const validation = await Category.validateParentChange(
-        id,
-        updateData.parentId
-      );
-      if (!validation.valid) {
-        return res.status(400).json({
-          success: false,
-          message: validation.error,
-        });
-      }
-
-      // If parent is being set, inherit headerCategoryId from parent if not explicitly provided
-      if (updateData.parentId && !updateData.headerCategoryId) {
-        const parent = await Category.findById(updateData.parentId);
-        if (parent && parent.headerCategoryId) {
-          updateData.headerCategoryId = parent.headerCategoryId;
-        }
-      }
-    }
-
-    // Validate headerCategoryId if being updated
-    if (updateData.headerCategoryId !== undefined) {
-      // If category has children, they should inherit the same header category
-      // But we allow the change - children will keep their current headerCategoryId
-      // unless explicitly updated
-
-      // Validate headerCategory exists and is Published
-      if (updateData.headerCategoryId) {
-        const headerCategory = await HeaderCategory.findById(
-          updateData.headerCategoryId
-        );
-        if (!headerCategory) {
-          return res.status(400).json({
-            success: false,
-            message: "Header category not found",
-          });
-        }
-
-        if (headerCategory.status !== "Published") {
-          return res.status(400).json({
-            success: false,
-            message: "Header category must be Published",
-          });
-        }
-      } else {
-        // If headerCategoryId is being set to null/empty, check if category has children
-        const childrenCount = await Category.countDocuments({ parentId: id });
-        if (childrenCount > 0) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Cannot remove header category from a category that has subcategories",
-          });
-        }
-      }
-    }
-
     // Update category
     const updatedCategory = await Category.findByIdAndUpdate(
       id,
@@ -340,9 +148,7 @@ export const updateCategory = asyncHandler(
         new: true,
         runValidators: true,
       }
-    )
-      .populate("parentId", "name")
-      .populate("headerCategoryId", "name status");
+    );
 
     // Invalidate category caches
     cache.delete("customer-categories-list");
@@ -364,15 +170,6 @@ export const deleteCategory = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    // Check if category has child categories (using parentId)
-    const childrenCount = await Category.countDocuments({ parentId: id });
-    if (childrenCount > 0) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Cannot delete category with subcategories. Please delete or move subcategories first.",
-      });
-    }
 
     // Check if category has old-style subcategories (backward compatibility)
     const subcategoryCount = await SubCategory.countDocuments({ category: id });
@@ -473,13 +270,6 @@ export const toggleCategoryStatus = asyncHandler(
     category.status = status;
     await category.save();
 
-    // Optionally cascade to children
-    if (cascadeToChildren === true) {
-      await Category.updateMany(
-        { parentId: id },
-        { status, updatedAt: new Date() }
-      );
-    }
 
     return res.status(200).json({
       success: true,
@@ -510,17 +300,6 @@ export const bulkDeleteCategories = asyncHandler(
 
     for (const categoryId of categoryIds) {
       try {
-        // Check for child categories
-        const childrenCount = await Category.countDocuments({
-          parentId: categoryId,
-        });
-        if (childrenCount > 0) {
-          results.failed.push({
-            id: categoryId,
-            reason: "Category has child categories",
-          });
-          continue;
-        }
 
         // Check for old-style subcategories
         const subcategoryCount = await SubCategory.countDocuments({

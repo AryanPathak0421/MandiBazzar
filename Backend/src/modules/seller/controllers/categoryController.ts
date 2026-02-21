@@ -10,15 +10,16 @@ import { asyncHandler } from "../../../utils/asyncHandler";
  */
 export const getCategories = asyncHandler(
   async (req: Request, res: Response) => {
-    const { includeSubcategories, search } = req.query;
+    const { search } = req.query;
 
-    // Build query - by default, get only parent categories (no parentId)
-    const query: any = { parentId: null };
-
-    // If includeSubcategories is true, get all categories
-    if (includeSubcategories === "true") {
-      delete query.parentId;
-    }
+    // Build query
+    const query: any = {
+      status: "Active",
+      $or: [
+        { name: { $regex: /fruits|vegetables|fruit|vegetable/i } },
+        { slug: { $regex: /fruits|vegetables|fruit|vegetable/i } }
+      ]
+    };
 
     // Search filter
     if (search) {
@@ -26,8 +27,7 @@ export const getCategories = asyncHandler(
     }
 
     const categories = await Category.find(query)
-      .populate("headerCategoryId", "name slug")
-      .sort({ name: 1 });
+      .sort({ order: 1, name: 1 });
 
     // Get subcategory and product counts for each category
     const categoriesWithCounts = await Promise.all(
@@ -80,8 +80,8 @@ export const getCategoryById = asyncHandler(
     }
 
     // Get counts
-    const subcategoryCount = await Category.countDocuments({
-      parentId: category._id,
+    const subcategoryCount = await SubCategory.countDocuments({
+      category: category._id,
     });
 
     const productCount = await Product.countDocuments({
@@ -149,113 +149,40 @@ export const getSubcategories = asyncHandler(
       ? { $regex: search as string, $options: "i" }
       : undefined;
 
-    // 1. Get subcategories from new Category model (where parentId = category id)
-    const categorySubcategoriesQuery: any = {
-      parentId: id,
-      status: "Active", // Only active subcategories
-    };
+    // Get subcategories from SubCategory model
+    const subcategoryQuery: any = { category: id };
     if (searchQuery) {
-      categorySubcategoriesQuery.name = searchQuery;
+      subcategoryQuery.name = searchQuery;
     }
 
-    const categorySubcategories = await Category.find(
-      categorySubcategoriesQuery
-    )
+    const subcategories = await SubCategory.find(subcategoryQuery)
       .sort(sort)
       .skip(skip)
       .limit(limitNum)
       .lean();
 
-    // 2. Get subcategories from old SubCategory model (for backward compatibility)
-    const oldSubcategoryQuery: any = { category: id };
-    if (searchQuery) {
-      oldSubcategoryQuery.name = searchQuery;
-    }
-
-    const oldSubcategories = await SubCategory.find(oldSubcategoryQuery)
-      .sort(sort)
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
-
-    // Combine both results
-    const allSubcategories = [
-      ...categorySubcategories.map((cat) => ({
-        _id: cat._id,
-        name: cat.name,
-        subcategoryName: cat.name, // Map name to subcategoryName for frontend compatibility
-        categoryName: parentCategory.name,
-        image: cat.image,
-        subcategoryImage: cat.image,
-        order: cat.order || 0,
-        totalProduct: 0, // Will be calculated below
-        isNewModel: true, // Flag to identify new model
-      })),
-      ...oldSubcategories.map((sub) => ({
-        _id: sub._id,
-        name: sub.name,
-        subcategoryName: sub.name,
-        categoryName: parentCategory.name,
-        image: sub.image,
-        subcategoryImage: sub.image,
-        order: sub.order || 0,
-        totalProduct: 0, // Will be calculated below
-        isNewModel: false, // Flag to identify old model
-      })),
-    ];
-
-    // Remove duplicates (in case same subcategory exists in both models)
-    const uniqueSubcategories = Array.from(
-      new Map(
-        allSubcategories.map((item) => [item._id.toString(), item])
-      ).values()
-    );
-
-    // Sort combined results
-    uniqueSubcategories.sort((a, b) => {
-      const aValue = (a as any)[sortField] || "";
-      const bValue = (b as any)[sortField] || "";
-      if (sortOrder === "asc") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
-    // Apply pagination to combined results
-    const paginatedSubcategories = uniqueSubcategories.slice(
-      skip,
-      skip + limitNum
-    );
-
-    // Get product counts for each subcategory
+    // Map to response format
     const subcategoriesWithCounts = await Promise.all(
-      paginatedSubcategories.map(async (subcategory) => {
-        // Count products - check both old and new models
-        const productCountOld = await Product.countDocuments({
-          subcategory: subcategory._id,
+      subcategories.map(async (sub) => {
+        const productCount = await Product.countDocuments({
+          subcategory: sub._id,
         });
-
-        // For new model, products might reference category directly
-        const productCountNew = await Product.countDocuments({
-          category: subcategory._id,
-        });
-
-        const totalProduct = productCountOld + productCountNew;
 
         return {
-          ...subcategory,
-          totalProduct,
+          _id: sub._id,
+          name: sub.name,
+          subcategoryName: sub.name,
+          categoryName: parentCategory.name,
+          image: sub.image,
+          subcategoryImage: sub.image,
+          order: sub.order || 0,
+          totalProduct: productCount,
         };
       })
     );
 
     // Get total count for pagination
-    const totalCategorySubs = await Category.countDocuments(
-      categorySubcategoriesQuery
-    );
-    const totalOldSubs = await SubCategory.countDocuments(oldSubcategoryQuery);
-    const total = totalCategorySubs + totalOldSubs;
+    const total = await SubCategory.countDocuments(subcategoryQuery);
 
     return res.status(200).json({
       success: true,
@@ -276,8 +203,13 @@ export const getSubcategories = asyncHandler(
  */
 export const getAllCategoriesWithSubcategories = asyncHandler(
   async (_req: Request, res: Response) => {
-    // Get all parent categories
-    const parentCategories = await Category.find({ parentId: null }).sort({
+    // Get all categories - only Fruits and Vegetables for homepage/public
+    const parentCategories = await Category.find({
+      $or: [
+        { name: { $regex: /fruits|vegetables|fruit|vegetable/i } },
+        { slug: { $regex: /fruits|vegetables|fruit|vegetable/i } }
+      ]
+    }).sort({
       name: 1,
     });
 
@@ -399,33 +331,3 @@ export const getAllSubcategories = asyncHandler(
   }
 );
 
-/**
- * Get sub-subcategories by subcategory ID
- */
-export const getSubSubCategories = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { subCategoryId } = req.params;
-    const { search, isActive } = req.query;
-
-    // Query Category model where parentId is the subcategory ID
-    const query: any = { parentId: subCategoryId };
-
-    if (isActive === "true") {
-      query.status = "Active";
-    }
-
-    if (search) {
-      query.name = { $regex: search as string, $options: "i" };
-    }
-
-    const subSubCategories = await Category.find(query)
-      .sort({ order: 1, name: 1 })
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      message: "Sub-subcategories fetched successfully",
-      data: subSubCategories,
-    });
-  }
-);

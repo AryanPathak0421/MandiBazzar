@@ -5,7 +5,6 @@ import {
   getSubcategories,
   getAllCategoriesWithSubcategories,
   getAllSubcategories,
-  getSubSubCategories,
 } from "../modules/seller/controllers/categoryController";
 
 const router = Router();
@@ -28,9 +27,6 @@ router.get("/:id", getCategoryById);
 // Get subcategories of a specific category
 // Get subcategories of a specific category
 router.get("/:id/subcategories", getSubcategories);
-
-// Get sub-subcategories of a specific subcategory
-router.get("/:subCategoryId/sub-subcategories", getSubSubCategories);
 
 export default router;
 

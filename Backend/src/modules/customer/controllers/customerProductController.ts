@@ -33,46 +33,28 @@ export const getProducts = async (req: Request, res: Response) => {
       ],
     };
 
-    // Location-based filtering: Only show products from sellers within user's range
+    // Location-based filtering setup
     const userLat = latitude ? parseFloat(latitude as string) : null;
     const userLng = longitude ? parseFloat(longitude as string) : null;
 
-    if (userLat && userLng && !isNaN(userLat) && !isNaN(userLng)) {
+    let nearbySellerIds: mongoose.Types.ObjectId[] = [];
+    let locationProvided = false;
+
+    if (userLat !== null && userLng !== null && !isNaN(userLat) && !isNaN(userLng)) {
+      locationProvided = true;
       // Find sellers within user's location range
-      const nearbySellerIds = await findSellersWithinRange(userLat, userLng);
+      nearbySellerIds = await findSellersWithinRange(userLat, userLng);
 
-      if (nearbySellerIds.length === 0) {
-        // No sellers within range, return empty result
-        return res.status(200).json({
-          success: true,
-          data: [],
-          pagination: {
-            page: Number(page),
-            limit: Number(limit),
-            total: 0,
-            pages: 0,
-          },
-          message:
-            "No sellers available in your area. Please update your location.",
-        });
-      }
-
-      // Filter products by sellers within range
-      query.seller = { $in: nearbySellerIds };
-    } else {
-      // If no location provided, return empty result (strictly enforce location)
-      return res.status(200).json({
-        success: true,
-        data: [],
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total: 0,
-          pages: 0,
-        },
-        message: "Please provide your location to see products available in your area.",
-      });
+      // If we have location but no sellers nearby, we can still show products 
+      // but they will be marked as unavailable (just like home sections)
+      // query.seller = { $in: nearbySellerIds }; // Don't strictly filter yet
     }
+
+    // We can filter by nearby sellers if we want strict mode, 
+    // but the user's issue implies products should show up 
+    // especially those from Admin store which we now always return in nearbySellerIds.
+    // Let's only filter if we definitely want to restrict the view.
+    // For now, let's allow showing all but mark availability.
 
     // Helper to resolve category/subcategory ID from slug or ID
     const resolveId = async (
@@ -118,15 +100,15 @@ export const getProducts = async (req: Request, res: Response) => {
 
       // Special handling for Category and "and" -> "&"
       if (modelName === "Category" && value.includes("and")) {
-         const withAmpersand = value.replace(/-and-/g, " & ").replace(/-/g, " ");
-         item = await model
-           .findOne({
-             ...baseQuery,
-             name: { $regex: new RegExp(`^${withAmpersand}$`, "i") },
-           })
-           .select("_id")
-           .lean();
-         if (item) return item._id;
+        const withAmpersand = value.replace(/-and-/g, " & ").replace(/-/g, " ");
+        item = await model
+          .findOne({
+            ...baseQuery,
+            name: { $regex: new RegExp(`^${withAmpersand}$`, "i") },
+          })
+          .select("_id")
+          .lean();
+        if (item) return item._id;
       }
 
       return null;
@@ -199,15 +181,32 @@ export const getProducts = async (req: Request, res: Response) => {
 
     const total = await Product.countDocuments(query);
 
+    // Final transformation to add availability flag
+    const productsWithAvailability = products.map((p: any) => {
+      const productObj = p.toObject ? p.toObject() : p;
+
+      // If no location provided, we show products but marked unavailable for strictness, 
+      // OR we just show them. For now, let's mark based on nearbySellerIds.
+      const isAvailable = nearbySellerIds.length > 0 && productObj.seller
+        ? nearbySellerIds.some(id => id.toString() === productObj.seller.toString())
+        : !locationProvided; // If no location provided, assume available for browsing unless strict
+
+      return {
+        ...productObj,
+        isAvailable
+      };
+    });
+
     return res.status(200).json({
       success: true,
-      data: products,
+      data: productsWithAvailability,
       pagination: {
         page: Number(page),
         limit: Number(limit),
         total,
         pages: Math.ceil(total / Number(limit)),
       },
+      locationResolved: locationProvided
     });
   } catch (error: any) {
     return res.status(500).json({

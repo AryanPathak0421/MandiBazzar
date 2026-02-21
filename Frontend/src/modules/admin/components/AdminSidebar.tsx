@@ -51,25 +51,7 @@ const menuSections: MenuSection[] = [
           </svg>
         ),
       },
-      {
-        label: "Sections",
-        path: "/admin/catalog/sections",
-        icon: (
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="3" y1="9" x2="21" y2="9"></line>
-            <line x1="9" y1="21" x2="9" y2="9"></line>
-          </svg>
-        ),
-      },
+
       {
         label: "Categories",
         path: "/admin/category",
@@ -237,25 +219,7 @@ const menuSections: MenuSection[] = [
           </svg>
         ),
       },
-      {
-        label: "Home Sections",
-        path: "/admin/home-section",
-        icon: (
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z"></path>
-            <path d="M9 22V12H15V22"></path>
-            <path d="M9 12H15"></path>
-          </svg>
-        ),
-      },
+
       {
         label: "Shop by Store",
         path: "/admin/shop-by-store",

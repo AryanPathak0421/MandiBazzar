@@ -16,27 +16,20 @@ import {
 import {
   getCategories,
   getSubcategories,
-  getSubSubCategories,
   Category,
   SubCategory,
-  SubSubCategory,
 } from "../../../services/api/categoryService";
 import { getActiveTaxes, Tax } from "../../../services/api/taxService";
 import { getBrands, Brand } from "../../../services/api/brandService";
-import {
-  getHeaderCategoriesPublic,
-  HeaderCategory,
-} from "../../../services/api/headerCategoryService";
+// HeaderCategory service removed as it's no longer used in this form
 
 export default function SellerAddProduct() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [formData, setFormData] = useState({
     productName: "",
-    headerCategory: "",
     category: "",
     subcategory: "",
-    subSubCategory: "",
     publish: "No",
     popular: "No",
     dealOfDay: "No",
@@ -82,59 +75,34 @@ export default function SellerAddProduct() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<SubCategory[]>([]);
-  const [subSubCategories, setSubSubCategories] = useState<SubSubCategory[]>([]);
   const [taxes, setTaxes] = useState<Tax[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [headerCategories, setHeaderCategories] = useState<HeaderCategory[]>(
-    []
-  );
   const [shops, setShops] = useState<Shop[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Use Promise.allSettled to ensure one failing API doesn't break all others
         const results = await Promise.allSettled([
           getCategories(),
           getActiveTaxes(),
           getBrands(),
-          getHeaderCategoriesPublic(),
           getShops(),
         ]);
 
-        // Handle categories
         if (results[0].status === "fulfilled" && results[0].value.success) {
           setCategories(results[0].value.data);
         }
 
-        // Handle taxes
         if (results[1].status === "fulfilled" && results[1].value.success) {
           setTaxes(results[1].value.data);
         }
 
-        // Handle brands
         if (results[2].status === "fulfilled" && results[2].value.success) {
           setBrands(results[2].value.data);
         }
 
-        // Handle header categories
-        if (results[3].status === "fulfilled") {
-          const headerCatRes = results[3].value;
-          if (headerCatRes && Array.isArray(headerCatRes)) {
-            // Filter only Published header categories
-            const published = headerCatRes.filter(
-              (hc: HeaderCategory) => hc.status === "Published"
-            );
-            setHeaderCategories(published);
-          }
-        }
-
-        // Handle shops (optional - for Shop By Store feature)
-        if (results[4].status === "fulfilled" && results[4].value.success) {
-          setShops(results[4].value.data);
-        } else if (results[4].status === "rejected") {
-          // Shops API failed - this is non-critical, log and continue
-          console.warn("Failed to fetch shops (Shop By Store feature may be unavailable):", results[4].reason?.message || "Unknown error");
+        if (results[3].status === "fulfilled" && results[3].value.success) {
+          setShops(results[3].value.data);
         }
       } catch (err) {
         console.error("Error fetching form data:", err);
@@ -152,19 +120,11 @@ export default function SellerAddProduct() {
             const product = response.data;
             setFormData({
               productName: product.productName,
-              headerCategory:
-                (product.headerCategoryId as any)?._id ||
-                (product as any).headerCategoryId ||
-                "",
               category:
                 (product.category as any)?._id || product.categoryId || "",
               subcategory:
                 (product.subcategory as any)?._id ||
                 product.subcategoryId ||
-                "",
-              subSubCategory:
-                (product.subSubCategory as any)?._id ||
-                (product as any).subSubCategoryId ||
                 "",
               publish: product.publish ? "Yes" : "No",
               popular: product.popular ? "Yes" : "No",
@@ -220,70 +180,13 @@ export default function SellerAddProduct() {
         }
       } else {
         setSubcategories([]);
-        // Clear subcategory selection when category is cleared
         setFormData((prev) => ({ ...prev, subcategory: "" }));
       }
     };
-    // Only fetch if category changed and user is interacting (or initial load)
-    // For edit mode, we want to load subcategories for the selected category
     if (formData.category) {
       fetchSubs();
     }
   }, [formData.category]);
-
-  useEffect(() => {
-    const fetchSubSubs = async () => {
-      if (formData.subcategory) {
-        try {
-          const res = await getSubSubCategories(formData.subcategory);
-          if (res.success) setSubSubCategories(res.data);
-        } catch (err) {
-          console.error("Error fetching sub-subcategories:", err);
-        }
-      } else {
-        setSubSubCategories([]);
-        setFormData((prev) => ({ ...prev, subSubCategory: "" }));
-      }
-    };
-    if (formData.subcategory) {
-      fetchSubSubs();
-    }
-  }, [formData.subcategory]);
-
-  // Clear category and subcategory when header category changes
-  useEffect(() => {
-    if (formData.headerCategory) {
-      // Header category selected - check if current category belongs to it
-      const currentCategory = categories.find(
-        (cat: any) => (cat._id || cat.id) === formData.category
-      );
-      if (currentCategory) {
-        const catHeaderId =
-          typeof currentCategory.headerCategoryId === "string"
-            ? currentCategory.headerCategoryId
-            : currentCategory.headerCategoryId?._id;
-        // If current category doesn't belong to selected header category, clear it
-        if (catHeaderId !== formData.headerCategory) {
-          setFormData((prev) => ({
-            ...prev,
-            category: "",
-            subcategory: "",
-            subSubCategory: "",
-          }));
-          setSubcategories([]);
-          setSubSubCategories([]);
-        }
-      }
-    } else {
-      // Header category cleared - clear category and subcategory
-      setFormData((prev) => ({
-        ...prev,
-        category: "",
-        subcategory: "",
-      }));
-      setSubcategories([]);
-    }
-  }, [formData.headerCategory, categories]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -398,12 +301,8 @@ export default function SellerAddProduct() {
       return;
     }
 
-    // Only validate categories if NOT shop by store only
+    // Only validate category if NOT shop by store only
     if (formData.isShopByStoreOnly !== "Yes") {
-      if (!formData.headerCategory) {
-        setUploadError("Please select a header category.");
-        return;
-      }
       if (!formData.category) {
         setUploadError("Please select a category.");
         return;
@@ -457,10 +356,8 @@ export default function SellerAddProduct() {
 
       const productData = {
         productName: formData.productName,
-        headerCategoryId: formData.headerCategory || undefined,
         categoryId: formData.category || undefined,
         subcategoryId: formData.subcategory || undefined,
-        subSubCategoryId: formData.subSubCategory || undefined,
         brandId: formData.brand || undefined,
         publish: formData.publish === "Yes",
         popular: formData.popular === "Yes",
@@ -505,10 +402,8 @@ export default function SellerAddProduct() {
           if (!id) {
             setFormData({
               productName: "",
-              headerCategory: "",
               category: "",
               subcategory: "",
-              subSubCategory: "",
               publish: "No",
               popular: "No",
               dealOfDay: "No",
@@ -539,8 +434,9 @@ export default function SellerAddProduct() {
             setGalleryImagePreviews([]);
           }
           setSuccessMessage("");
-          // Navigate to product list
-          navigate("/seller/product/list");
+          // Navigate to product list (dynamic path for admin or seller)
+          const basePath = window.location.pathname.startsWith('/admin') ? '/admin' : '/seller';
+          navigate(`${basePath}/product/list`);
         }, 1500);
       } else {
         setUploadError(response.message || "Failed to create product");
@@ -583,64 +479,21 @@ export default function SellerAddProduct() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Select Header Category{" "}
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="headerCategory"
-                    value={formData.headerCategory}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white">
-                    <option value="">Select Header Category</option>
-                    {headerCategories.map((headerCat) => (
-                      <option key={headerCat._id} value={headerCat._id}>
-                        {headerCat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Select Category
-                    {!formData.headerCategory && (
-                      <span className="text-xs text-neutral-500 ml-1">
-                        (Select header category first)
-                      </span>
-                    )}
                   </label>
                   <select
                     name="category"
                     value={formData.category}
                     onChange={handleChange}
-                    disabled={!formData.headerCategory}
-                    className={`w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 ${!formData.headerCategory
-                      ? "bg-neutral-100 cursor-not-allowed text-neutral-500"
-                      : "bg-white"
-                      }`}>
-                    <option value="">
-                      {formData.headerCategory
-                        ? "Select Category"
-                        : "Select Header Category First"}
-                    </option>
-                    {categories
-                      .filter((cat: any) => {
-                        // Filter categories by selected header category if header category is selected
-                        if (formData.headerCategory) {
-                          const catHeaderId =
-                            typeof cat.headerCategoryId === "string"
-                              ? cat.headerCategoryId
-                              : cat.headerCategoryId?._id;
-                          return catHeaderId === formData.headerCategory;
-                        }
-                        return true;
-                      })
-                      .map((cat: any) => (
-                        <option
-                          key={cat._id || cat.id}
-                          value={cat._id || cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
+                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white">
+                    <option value="">Select Category</option>
+                    {categories.map((cat: any) => (
+                      <option
+                        key={cat._id || cat.id}
+                        value={cat._id || cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -669,32 +522,6 @@ export default function SellerAddProduct() {
                     {subcategories.map((sub) => (
                       <option key={sub._id} value={sub._id}>
                         {sub.subcategoryName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Select Sub-SubCategory
-                    {!formData.subcategory && (
-                      <span className="text-xs text-neutral-500 ml-1">
-                        (Select subcategory first)
-                      </span>
-                    )}
-                  </label>
-                  <select
-                    name="subSubCategory"
-                    value={formData.subSubCategory}
-                    onChange={handleChange}
-                    disabled={!formData.subcategory}
-                    className={`w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 ${!formData.subcategory
-                      ? "bg-neutral-100 cursor-not-allowed text-neutral-500"
-                      : "bg-white"
-                      }`}>
-                    <option value="">Select Sub-SubCategory</option>
-                    {subSubCategories.map((subSub) => (
-                      <option key={subSub._id} value={subSub._id}>
-                        {subSub.name}
                       </option>
                     ))}
                   </select>

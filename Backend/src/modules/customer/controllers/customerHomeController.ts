@@ -3,8 +3,7 @@ import Product from "../../../models/Product";
 import Category from "../../../models/Category";
 import SubCategory from "../../../models/SubCategory";
 import Shop from "../../../models/Shop";
-import HeaderCategory from "../../../models/HeaderCategory";
-import HomeSection from "../../../models/HomeSection";
+// HomeSection import removed - replaced by Category hierarchy
 import BestsellerCard from "../../../models/BestsellerCard";
 import LowestPricesProduct from "../../../models/LowestPricesProduct";
 import PromoStrip from "../../../models/PromoStrip";
@@ -12,157 +11,9 @@ import mongoose from "mongoose";
 import { cache } from "../../../utils/cache";
 import { findSellersWithinRange } from "../../../utils/locationHelper";
 
-// Helper function to fetch data for a home section based on its configuration
-async function fetchSectionData(
-  section: any,
-  nearbySellerIds?: mongoose.Types.ObjectId[]
-): Promise<any[]> {
-  try {
-    const { categories, subCategories, displayType, limit } = section;
-
-    // If displayType is "subcategories", fetch subcategories
-    if (
-      displayType === "subcategories" &&
-      categories &&
-      categories.length > 0
-    ) {
-      const categoryIds = categories.map((cat: any) => cat._id || cat);
-
-      const subcategories = await SubCategory.find({
-        category: { $in: categoryIds },
-      })
-        .select("name image order category")
-        .sort({ order: 1 })
-        .limit(limit || 10)
-        .lean();
-
-      return subcategories.map((sub: any) => ({
-        id: sub._id.toString(),
-        subcategoryId: sub._id.toString(),
-        categoryId: sub.category?.toString() || "",
-        name: sub.name,
-        image: sub.image || "",
-        slug: sub.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        type: "subcategory",
-      }));
-    }
-
-    // If displayType is "products", fetch products
-    if (displayType === "products") {
-      const query: any = {
-        status: "Active",
-        publish: true,
-        // Exclude shop-by-store-only products from home sections
-        $or: [
-          { isShopByStoreOnly: { $ne: true } },
-          { isShopByStoreOnly: { $exists: false } },
-        ],
-      };
-
-      // We fetch these irrespective of location radius to show preview images on home page
-      // Location validation still happens at cart/order level
-      if (nearbySellerIds && nearbySellerIds.length > 0) {
-        // If we have nearby sellers, we can still filter by them if we want to prioritize
-        // But the user requested to show them irrespective of location radius
-        // For now, let's keep it simple and show all active products for the section
-      }
-
-      if (categories && categories.length > 0) {
-        const categoryIds = categories
-          .map((cat: any) => (cat ? cat._id || cat : null))
-          .filter((id: any) => id);
-
-        if (categoryIds.length > 0) {
-          query.category = { $in: categoryIds };
-        }
-      }
-
-      if (subCategories && subCategories.length > 0) {
-        const subCategoryIds = subCategories
-          .map((sub: any) => (sub ? sub._id || sub : null))
-          .filter((id: any) => id);
-
-        if (subCategoryIds.length > 0) {
-          query.subcategory = { $in: subCategoryIds };
-        }
-      }
-
-      const products = await Product.find(query)
-        .sort({ createdAt: -1 }) // Show newest items first
-        .limit(limit || 8)
-        .select("productName mainImage price mrp discount rating reviewsCount pack seller")
-        .lean();
-
-      return products.map((p: any) => {
-        // Check if the product's seller is within range
-        const isAvailable = nearbySellerIds && nearbySellerIds.length > 0 && p.seller
-          ? nearbySellerIds.some(id => id.toString() === p.seller.toString())
-          : false;
-
-        return {
-          id: p._id.toString(),
-          productId: p._id.toString(),
-          name: p.productName,
-          productName: p.productName,
-          image: p.mainImage,
-          mainImage: p.mainImage,
-          price: p.price,
-          discount:
-            p.discount ||
-            (p.mrp && p.price
-              ? Math.round(((p.mrp - p.price) / p.mrp) * 100)
-              : 0),
-          productImages: p.mainImage ? [p.mainImage] : [],
-          rating: p.rating || 0,
-          reviewsCount: p.reviewsCount || 0,
-          reviews: p.reviewsCount || 0,
-          pack: p.pack || "",
-          type: "product",
-          isAvailable,
-          seller: p.seller,
-        };
-      });
-    }
-
-    // If displayType is "categories", fetch the selected categories themselves
-    if (displayType === "categories") {
-      // If categories are specified, fetch those specific categories
-      if (categories && categories.length > 0) {
-        const categoryIds = categories.map((cat: any) => cat._id || cat);
-
-        const fetchedCategories = await Category.find({
-          _id: { $in: categoryIds },
-          status: "Active",
-        })
-          .select("name image slug")
-          .sort({ order: 1 })
-          .limit(limit || 8)
-          .lean();
-
-        return fetchedCategories.map((c: any) => ({
-          id: c._id.toString(),
-          categoryId: c.slug || c._id.toString(), // Use slug for SEO-friendly URLs, fallback to _id
-          name: c.name,
-          image: c.image,
-          slug: c.slug,
-          type: "category",
-        }));
-      } else {
-        // If no categories specified, return empty array
-        return [];
-      }
-    }
-
-    return [];
-  } catch (error) {
-    console.error("Error fetching section data:", error);
-    return [];
-  }
-}
-
 // Get Home Page Content
 export const getHomeContent = async (req: Request, res: Response) => {
-  const { headerCategorySlug, latitude, longitude } = req.query; // Get header category slug and location from query params
+  const { latitude, longitude } = req.query; // Get location from query params
 
   try {
     // Find sellers within user's location range
@@ -188,62 +39,68 @@ export const getHomeContent = async (req: Request, res: Response) => {
 
     // For each bestseller card, get 4 products from the associated category
     const bestsellers = await Promise.all(
-      bestsellerCards.map(async (card: any) => {
-        const categoryId = card.category?._id || card.category;
+      bestsellerCards
+        .filter((card: any) => {
+          if (!card.category) return false;
+          const name = card.category.name || "";
+          const slug = card.category.slug || "";
+          const regex = /fruits|vegetables|fruit|vegetable/i;
+          return regex.test(name) || regex.test(slug);
+        })
+        .map(async (card: any) => {
+          const categoryId = card.category?._id || card.category;
 
-        // Build product query for images (ignore location to show category preview)
-        const productQuery: any = {
-          category: categoryId,
-          status: "Active",
-          publish: true,
-        };
+          // Build product query for images (ignore location to show category preview)
+          const productQuery: any = {
+            category: categoryId,
+            status: "Active",
+            publish: true,
+          };
 
-        // Fetch 4 active products from the category for preview images
-        // We fetch these irrespective of location radius to show category preview
-        const categoryProducts = await Product.find(productQuery)
-          .select("productName mainImage galleryImages")
-          .sort({ createdAt: -1 })
-          .limit(4)
-          .lean();
+          // Fetch 4 active products from the category for preview images
+          // We fetch these irrespective of location radius to show category preview
+          const categoryProducts = await Product.find(productQuery)
+            .select("productName mainImage galleryImages")
+            .sort({ createdAt: -1 })
+            .limit(4)
+            .lean();
 
-        // Extract exactly 4 product images (prefer mainImage, fallback to galleryImages[0])
-        const productImages: string[] = [];
-        categoryProducts.forEach((product: any) => {
-          if (productImages.length < 4 && product.mainImage) {
-            productImages.push(product.mainImage);
-          }
-        });
-
-        // If we have less than 4 products, try to use gallery images
-        if (productImages.length < 4) {
+          // Extract exactly 4 product images (prefer mainImage, fallback to galleryImages[0])
+          const productImages: string[] = [];
           categoryProducts.forEach((product: any) => {
-            if (
-              productImages.length < 4 &&
-              product.galleryImages &&
-              product.galleryImages.length > 0
-            ) {
-              productImages.push(product.galleryImages[0]);
+            if (productImages.length < 4 && product.mainImage) {
+              productImages.push(product.mainImage);
             }
           });
-        }
 
-        // Ensure we have exactly 4 images (pad with first image if needed)
-        while (productImages.length < 4 && productImages[0]) {
-          productImages.push(productImages[0]);
-        }
+          // If we have less than 4 products, try to use gallery images
+          if (productImages.length < 4) {
+            categoryProducts.forEach((product: any) => {
+              if (
+                productImages.length < 4 &&
+                product.galleryImages &&
+                product.galleryImages.length > 0
+              ) {
+                productImages.push(product.galleryImages[0]);
+              }
+            });
+          }
 
-        return {
-          id: card._id.toString(),
-          categoryId: categoryId.toString(),
-          name: card.name,
-          productImages: productImages.slice(0, 4),
-          productCount: categoryProducts.length,
-        };
-      })
+          // Ensure we have exactly 4 images (pad with first image if needed)
+          while (productImages.length < 4 && productImages[0]) {
+            productImages.push(productImages[0]);
+          }
+
+          return {
+            id: card._id.toString(),
+            categoryId: categoryId.toString(),
+            name: card.name,
+            productImages: productImages.slice(0, 4),
+            productCount: categoryProducts.length,
+          };
+        })
     );
 
-    // 2. Lowest Prices Products - Get admin-selected products
-    // We fetch these irrespective of location radius to show preview on home page
     const lowestPricesProductsQuery: any = {
       isActive: true,
     };
@@ -255,18 +112,28 @@ export const getHomeContent = async (req: Request, res: Response) => {
         path: "product",
         select:
           "productName mainImage price mrp discount status publish category subcategory seller",
+        populate: { path: "category", select: "name slug" },
         match: {
           status: "Active",
           publish: true,
-          // Removed location filter to show preview images irrespective of radius
         },
       })
       .sort({ order: 1 })
       .lean();
 
-    // Filter out any products that were null (due to match condition)
+    // Filter out any products that were null (due to match condition) OR don't belong to fruits/vegetables
     const validLowestPricesProducts = lowestPricesProducts
-      .filter((item: any) => item.product !== null)
+      .filter((item: any) => {
+        const p = item.product;
+        if (!p || !p.category) return false;
+
+        // Match category name or slug for Fruits/Vegetables
+        const catName = p.category.name || "";
+        const catSlug = p.category.slug || "";
+        const regex = /fruits|vegetables|fruit|vegetable/i;
+
+        return regex.test(catName) || regex.test(catSlug);
+      })
       .map((item: any) => {
         const product = item.product;
         // Check if the product's seller is within range
@@ -284,7 +151,7 @@ export const getHomeContent = async (req: Request, res: Response) => {
           price: product.price,
           mrp: product.mrp || product.price,
           discount: product.discount || (product.mrp && product.price ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0),
-          categoryId: product.category?.toString() || "",
+          categoryId: product.category?._id?.toString() || product.category?.toString() || "",
           subcategory: product.subcategory?.toString() || "",
           status: product.status,
           publish: product.publish,
@@ -296,9 +163,14 @@ export const getHomeContent = async (req: Request, res: Response) => {
     // 3. Categories for Tiles (Grocery, Snacks, etc)
     const categories = await Category.find({
       status: "Active",
+      $or: [
+        { name: { $regex: /fruits|vegetables|fruit|vegetable/i } },
+        { slug: { $regex: /fruits|vegetables|fruit|vegetable/i } }
+      ]
     })
       .select("name image icon color slug")
-      .sort({ order: 1 });
+      .sort({ order: 1 })
+      .lean();
 
     // 4. Shop By Store - Fetch from database
     const shopDocuments = await Shop.find({ isActive: true })
@@ -339,6 +211,10 @@ export const getHomeContent = async (req: Request, res: Response) => {
     // 5. Trending Items (Fetch some popular categories or products)
     const trendingCategories = await Category.find({
       status: "Active",
+      $or: [
+        { name: { $regex: /fruits|vegetables|fruit|vegetable/i } },
+        { slug: { $regex: /fruits|vegetables|fruit|vegetable/i } }
+      ]
     })
       .limit(5)
       .select("name image slug");
@@ -370,162 +246,129 @@ export const getHomeContent = async (req: Request, res: Response) => {
       productId: p._id,
     }));
 
-    // 8. Promo Cards (Dynamic - Categories with headerCategoryId)
-    // Fetch root categories (parentId: null) that have a headerCategoryId assigned and are Active
-    // If headerCategorySlug is provided, filter by that specific header category
-    // Include their child categories (subcategories) with images
-
-    // Build query for categories
-    const categoryQuery: any = {
-      headerCategoryId: { $exists: true, $ne: null },
+    // 8. Promo Cards (Simplified to use top categories)
+    const promoCategories = await Category.find({
       status: "Active",
-      parentId: null, // Only root categories (not subcategories themselves)
-    };
-
-    // If headerCategorySlug is provided, find the header category and filter by it
-    if (headerCategorySlug && headerCategorySlug !== "all") {
-      const headerCategory = await HeaderCategory.findOne({
-        slug: headerCategorySlug,
-        status: "Published",
-      }).lean();
-
-      if (headerCategory) {
-        categoryQuery.headerCategoryId = headerCategory._id;
-      } else {
-        // If header category not found, return empty promo cards for this header category
-        // The query will still work but won't match any categories
-        console.log(
-          `Header category with slug "${headerCategorySlug}" not found`
-        );
-      }
-    }
-
-    const categoriesWithHeaderCategory = await Category.find(categoryQuery)
-      .populate("headerCategoryId", "name status")
+      $or: [
+        { name: { $regex: /fruits|vegetables|fruit|vegetable/i } },
+        { slug: { $regex: /fruits|vegetables|fruit|vegetable/i } }
+      ]
+    })
       .sort({ order: 1 })
-      .limit(4) // Limit to 4 promo cards
+      .limit(4)
       .lean();
 
     const promoCards = await Promise.all(
-      categoriesWithHeaderCategory.map(async (category: any) => {
-        // Get child categories (subcategories) for this category
-        const childCategories = await Category.find({
-          parentId: category._id,
-          status: "Active",
+      promoCategories.map(async (category: any) => {
+        // Get subcategories for this category from SubCategory model
+        const subcategories = await SubCategory.find({
+          category: category._id,
         })
-          .select("name image _id")
-          .sort({ order: 1 })
-          .limit(4) // Limit to 4 subcategory images
+          .select("image")
+          .limit(4)
           .lean();
 
-        // Extract subcategory images
-        const subcategoryImages = childCategories
+        const subcategoryImages = subcategories
           .map((child: any) => child.image)
           .filter((img: string) => img && img.trim() !== "");
 
         return {
           id: category._id.toString(),
-          badge: "Up to 55% OFF", // Default badge, can be customized later
+          badge: "Fresh & Healthy",
           title: category.name,
           categoryId: category._id.toString(),
           slug: category.slug || category._id.toString(),
-          bgColor: "bg-yellow-50",
-          subcategoryImages: subcategoryImages.slice(0, 4), // Max 4 images
+          bgColor: "bg-green-50",
+          subcategoryImages: subcategoryImages.slice(0, 4),
         };
       })
     );
 
-    // Fallback to hardcoded cards if no categories with headerCategoryId exist
-    const finalPromoCards =
-      promoCards.length > 0
-        ? promoCards
-        : [
-          {
-            id: "self-care",
-            badge: "Up to 55% OFF",
-            title: "Self Care & Wellness",
-            categoryId: "personal-care",
-            bgColor: "bg-yellow-50",
-            subcategoryImages: [],
-          },
-          {
-            id: "hot-meals",
-            badge: "Up to 55% OFF",
-            title: "Hot Meals & Drinks",
-            categoryId: "breakfast-instant",
-            bgColor: "bg-yellow-50",
-            subcategoryImages: [],
-          },
-          {
-            id: "kitchen-essentials",
-            badge: "Up to 55% OFF",
-            title: "Kitchen Essentials",
-            categoryId: "atta-rice",
-            bgColor: "bg-yellow-50",
-            subcategoryImages: [],
-          },
-          {
-            id: "cleaning-home",
-            badge: "Up to 75% OFF",
-            title: "Cleaning & Home Needs",
-            categoryId: "household",
-            bgColor: "bg-yellow-50",
-            subcategoryImages: [],
-          },
-        ];
+    const finalPromoCards = promoCards.length > 0 ? promoCards : [];
 
-    // 9. Dynamic Home Sections - Fetch from database based on Header Category
-    const homeSectionQuery: any = { isActive: true };
-
-    if (headerCategorySlug && headerCategorySlug !== "all") {
-      // Find the header category first
-      const headerCategory = await HeaderCategory.findOne({
-        slug: headerCategorySlug,
-        status: "Published",
-      }).select("_id");
-
-      if (headerCategory) {
-        // Show sections specific to this header category
-        homeSectionQuery.headerCategory = headerCategory._id;
-      } else {
-        // If header category not found, return empty
-        // Use a dummy ID that won't match anything
-        homeSectionQuery.headerCategory = new mongoose.Types.ObjectId();
-      }
-    } else {
-      // If "all" (Home Page), ONLY show Global sections (headerCategory is null/undefined)
-      // OR sections explicitly marked as isGlobal
-      homeSectionQuery.$or = [
-        { headerCategory: null },
-        { headerCategory: { $exists: false } },
-        { isGlobal: true },
-      ];
-    }
-
-    const homeSections = await HomeSection.find(homeSectionQuery)
-      .populate("categories", "name slug image")
-      .populate("subCategories", "name")
+    // 9. Category Hierarchy - Category → Subcategory → Products
+    const allCategories = await Category.find({
+      status: "Active",
+      $or: [
+        { name: { $regex: /fruits|vegetables|fruit|vegetable/i } },
+        { slug: { $regex: /fruits|vegetables|fruit|vegetable/i } }
+      ]
+    })
+      .select("name slug image order")
       .sort({ order: 1 })
       .lean();
 
-    // Fetch data for each section
-    const dynamicSections = await Promise.all(
-      homeSections.map(async (section: any) => {
-        const sectionData = await fetchSectionData(section, nearbySellerIds);
+    const categoryHierarchy = await Promise.all(
+      allCategories.map(async (category: any) => {
+        // Get subcategories for this category
+        const subcategories = await SubCategory.find({ category: category._id })
+          .select("name image order")
+          .sort({ order: 1 })
+          .lean();
+
+        // For each subcategory, get its products
+        const subcatsWithProducts = await Promise.all(
+          subcategories.map(async (subcat: any) => {
+            const productQuery: any = {
+              status: "Active",
+              publish: true,
+              subcategory: subcat._id,
+              $or: [
+                { isShopByStoreOnly: { $ne: true } },
+                { isShopByStoreOnly: { $exists: false } },
+              ],
+            };
+
+            const products = await Product.find(productQuery)
+              .sort({ createdAt: -1 })
+              .limit(20)
+              .select("productName mainImage price mrp discount rating reviewsCount pack seller")
+              .lean();
+
+            return {
+              id: subcat._id.toString(),
+              name: subcat.name,
+              image: subcat.image || "",
+              products: products.map((p: any) => {
+                const isAvailable = nearbySellerIds && nearbySellerIds.length > 0 && p.seller
+                  ? nearbySellerIds.some(id => id.toString() === p.seller.toString())
+                  : false;
+                return {
+                  id: p._id.toString(),
+                  productId: p._id.toString(),
+                  name: p.productName,
+                  productName: p.productName,
+                  image: p.mainImage,
+                  mainImage: p.mainImage,
+                  price: p.price,
+                  mrp: p.mrp,
+                  discount: p.discount || (p.mrp && p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0),
+                  rating: p.rating || 0,
+                  reviewsCount: p.reviewsCount || 0,
+                  pack: p.pack || "",
+                  isAvailable,
+                  seller: p.seller,
+                };
+              }),
+            };
+          })
+        );
+
         return {
-          id: section._id.toString(),
-          title: section.title,
-          slug: section.slug,
-          displayType: section.displayType,
-          columns: section.columns,
-          data: sectionData,
+          id: category._id.toString(),
+          name: category.name,
+          slug: category.slug,
+          image: category.image || "",
+          subcategories: subcatsWithProducts.filter(s => s.products.length > 0),
         };
       })
     );
 
-    // 10. Fetch PromoStrip for the current header category (with caching)
-    const currentHeaderCategorySlug = (headerCategorySlug as string) || "all";
-    const promoStripCacheKey = `promoStrip-${currentHeaderCategorySlug.toLowerCase()}`;
+    // Filter out categories with no subcategories that have products
+    const filteredHierarchy = categoryHierarchy.filter(c => c.subcategories.length > 0);
+
+    // 10. Fetch PromoStrip (Simplified to use general active promo strips)
+    const promoStripCacheKey = `promoStrip-active`;
 
     // Try to get from cache first
     let promoStrip = cache.get(promoStripCacheKey) as any;
@@ -533,7 +376,6 @@ export const getHomeContent = async (req: Request, res: Response) => {
     if (!promoStrip) {
       const now = new Date();
       const promoStripDoc = await PromoStrip.findOne({
-        headerCategorySlug: currentHeaderCategorySlug.toLowerCase(),
         isActive: true,
         startDate: { $lte: now },
         endDate: { $gte: now },
@@ -570,8 +412,10 @@ export const getHomeContent = async (req: Request, res: Response) => {
         bestsellers,
         lowestPrices: validLowestPricesProducts, // Admin-selected products for LowestPricesEver section
         categories,
-        // Dynamic sections created by admin
-        homeSections: dynamicSections,
+        // Category hierarchy (replaces homeSections)
+        categoryHierarchy: filteredHierarchy,
+        // Keep homeSections as empty array for backward compatibility
+        homeSections: [],
         shops,
         promoBanners: [
           {

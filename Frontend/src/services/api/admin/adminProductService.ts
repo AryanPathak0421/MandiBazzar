@@ -13,16 +13,6 @@ export interface Category {
   groupCategory?: string;
   totalSubcategories?: number;
   status: "Active" | "Inactive";
-  parentId?: string | null;
-  parent?: Category;
-  children?: Category[];
-  childrenCount?: number;
-  headerCategoryId?: string | null;
-  headerCategory?: {
-    _id: string;
-    name: string;
-    status: "Published" | "Unpublished";
-  };
   createdAt?: string;
   updatedAt?: string;
   commissionRate?: number;
@@ -35,8 +25,6 @@ export interface CreateCategoryData {
   isBestseller?: boolean;
   hasWarning?: boolean;
   groupCategory?: string;
-  parentId?: string | null;
-  headerCategoryId?: string | null;
   status?: "Active" | "Inactive";
   commissionRate?: number;
 }
@@ -236,19 +224,9 @@ export const getCategories = async (params?: {
   search?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
-  parentId?: string | null;
-  includeChildren?: boolean;
   status?: "Active" | "Inactive";
-  headerCategoryId?: string;
 }): Promise<ApiResponse<Category[]>> => {
   const queryParams: any = { ...params };
-  if (params?.includeChildren !== undefined) {
-    queryParams.includeChildren = params.includeChildren.toString();
-  }
-  if (params?.parentId === null || params?.parentId === undefined) {
-    // Don't include parentId in query if it's null/undefined
-    delete queryParams.parentId;
-  }
   const response = await api.get<ApiResponse<Category[]>>("/admin/categories", {
     params: queryParams,
   });

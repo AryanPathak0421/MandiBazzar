@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  getHomeSections,
-  type HomeSection,
-} from "../../../services/api/admin/adminHomeSectionService";
-import {
+  getCategories,
   getSubcategories,
   type Category,
   type SubCategory,
@@ -161,70 +158,44 @@ function CatalogPanel<T extends { _id?: string; id?: string }>({
 export default function AdminCatalogManager() {
   const navigate = useNavigate();
 
-  // Data State
-  const [sections, setSections] = useState<HomeSection[]>([]);
+  // Data State - Category → SubCategory → Product hierarchy
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
 
   // Selection State
-  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   // Search State
-  const [searchSection, setSearchSection] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
   const [searchSubCategory, setSearchSubCategory] = useState("");
   const [searchProduct, setSearchProduct] = useState("");
 
   // Loading States
-  const [loadingSections, setLoadingSections] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingSubCats, setLoadingSubCats] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
 
-  // -- Fetch Sections --
+  // -- Fetch Categories on mount --
   useEffect(() => {
-    fetchSections();
+    fetchCategories();
   }, []);
 
-  const fetchSections = async () => {
-    setLoadingSections(true);
+  const fetchCategories = async () => {
+    setLoadingCategories(true);
     try {
-      const res = await getHomeSections();
-      if (res.success && Array.isArray(res.data)) {
-        setSections(res.data);
-      }
+      const res = await getCategories();
+      if (res.success) setCategories(res.data);
     } catch (e) {
       console.error(e);
     } finally {
-      setLoadingSections(false);
+      setLoadingCategories(false);
     }
   };
 
-  // -- 1. Section -> Categories --
-  useEffect(() => {
-    if (selectedSectionId) {
-      const section = sections.find(s => s._id === selectedSectionId);
-      if (section && section.categories && section.categories.length > 0) {
-        // If section has categories populated, use them
-        setCategories(section.categories as unknown as Category[]);
-      } else {
-        setCategories([]);
-      }
-    } else {
-      setCategories([]);
-    }
-    // Reset DOWNSTREAM
-    setSelectedCategoryId(null);
-    setSubCategories([]);
-    setSelectedSubCategoryId(null);
-    setProducts([]);
-    setSelectedProductId(null);
-  }, [selectedSectionId, sections]);
-
-  // -- 2. Category -> SubCategories --
+  // -- 1. Category -> SubCategories --
   useEffect(() => {
     if (selectedCategoryId) {
       fetchSubCats(selectedCategoryId);
@@ -248,7 +219,7 @@ export default function AdminCatalogManager() {
     }
   };
 
-  // -- 3. SubCategory -> Products --
+  // -- 2. SubCategory -> Products --
   useEffect(() => {
     if (selectedSubCategoryId) {
       fetchProds(selectedSubCategoryId);
@@ -283,61 +254,32 @@ export default function AdminCatalogManager() {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-neutral-900 tracking-tight">Catalog Intelligence</h1>
+            <h1 className="text-xl font-extrabold text-neutral-900 tracking-tight">Catalog Manager</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">Live Visual Hierarchy</p>
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">Category → Subcategory → Product</p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate("/admin/home-section")}
-            className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-lg active:scale-95"
-          >
-            Configure Logic
-          </button>
           <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-neutral-50 rounded-full border border-neutral-100">
-            <span className="text-xs font-bold text-neutral-400">STATUS:</span>
-            <span className="text-xs font-bold text-teal-600">CONNECTED</span>
+            <span className="text-xs font-bold text-neutral-400">HIERARCHY:</span>
+            <span className="text-xs font-bold text-teal-600">3 LEVELS</span>
           </div>
         </div>
       </div>
 
       {/* Hierarchy Container */}
       <div className="flex-1 flex bg-neutral-50/30 overflow-x-auto overflow-y-hidden custom-scrollbar">
-        {/* Panel 1: Home Sections */}
-        <CatalogPanel
-          title="Home Sections"
-          subtitle="Level 1"
-          items={sections}
-          selectedId={selectedSectionId}
-          onSelect={(s) => setSelectedSectionId(s._id)}
-          loading={loadingSections}
-          searchQuery={searchSection}
-          onSearchChange={setSearchSection}
-          renderItem={(s) => (
-            <div>
-              <div className={`font-bold text-sm ${selectedSectionId === s._id ? "text-white" : "text-neutral-800"}`}>{s.title}</div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter ${selectedSectionId === s._id ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-500"}`}>
-                  {s.displayType}
-                </span>
-              </div>
-            </div>
-          )}
-          onAdd={() => navigate("/admin/catalog/sections")}
-        />
-
-        {/* Panel 2: Categories */}
+        {/* Panel 1: Categories */}
         <CatalogPanel
           title="Categories"
-          subtitle="Level 2"
+          subtitle="Level 1"
           items={categories}
           selectedId={selectedCategoryId}
           onSelect={(c) => setSelectedCategoryId(c._id)}
-          emptyMessage={selectedSectionId ? "No categories linked" : "Select Section"}
+          loading={loadingCategories}
           searchQuery={searchCategory}
           onSearchChange={setSearchCategory}
           renderItem={(cat) => (
@@ -358,15 +300,15 @@ export default function AdminCatalogManager() {
           onAdd={() => navigate("/admin/category")}
         />
 
-        {/* Panel 3: SubCategories */}
+        {/* Panel 2: SubCategories */}
         <CatalogPanel
           title="Sub-Categories"
-          subtitle="Level 3"
+          subtitle="Level 2"
           items={subCategories}
           selectedId={selectedSubCategoryId}
           onSelect={(s) => setSelectedSubCategoryId(s._id || s.id || "")}
           loading={loadingSubCats}
-          emptyMessage={selectedCategoryId ? "No subcategories" : "Bridge from category"}
+          emptyMessage={selectedCategoryId ? "No subcategories" : "Select a category"}
           searchQuery={searchSubCategory}
           onSearchChange={setSearchSubCategory}
           renderItem={(sub) => (
@@ -379,18 +321,18 @@ export default function AdminCatalogManager() {
               </div>
             </div>
           )}
-          onAdd={selectedCategoryId ? () => navigate("/admin/category") : undefined}
+          onAdd={selectedCategoryId ? () => navigate("/admin/subcategory") : undefined}
         />
 
-        {/* Panel 4: Products */}
+        {/* Panel 3: Products */}
         <CatalogPanel
           title="Products"
-          subtitle="Level 4"
+          subtitle="Level 3"
           items={products}
           selectedId={selectedProductId}
           onSelect={(p) => setSelectedProductId(p._id)}
           loading={loadingProducts}
-          emptyMessage={selectedSubCategoryId ? "Empty shelf" : "Finalize hierarchy"}
+          emptyMessage={selectedSubCategoryId ? "No products found" : "Select a subcategory"}
           searchQuery={searchProduct}
           onSearchChange={setSearchProduct}
           renderItem={(prod) => (
@@ -422,7 +364,7 @@ export default function AdminCatalogManager() {
         <div className="flex items-center gap-6 text-xs font-bold text-neutral-400">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
-            <span>TOTAL SECTIONS: {sections.length}</span>
+            <span>CATEGORIES: {categories.length}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
@@ -430,7 +372,7 @@ export default function AdminCatalogManager() {
           </div>
         </div>
         <div className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">
-          Catalog Intelligence v2.0
+          Catalog Manager v3.0
         </div>
       </div>
 

@@ -11,19 +11,11 @@ export interface ICategory extends Document {
   totalSubcategories?: number;
   commissionRate?: number;
   status: "Active" | "Inactive";
-  parentId?: mongoose.Types.ObjectId;
-  headerCategoryId?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
-  getAllDescendants(): Promise<ICategory[]>;
 }
 
-export interface ICategoryModel extends Model<ICategory> {
-  validateParentChange(
-    categoryId: string,
-    newParentId: string | null
-  ): Promise<{ valid: boolean; error?: string }>;
-}
+export interface ICategoryModel extends Model<ICategory> { }
 
 const CategorySchema = new Schema<ICategory>(
   {
@@ -75,17 +67,7 @@ const CategorySchema = new Schema<ICategory>(
       type: String,
       enum: ["Active", "Inactive"],
       default: "Active",
-    },
-    parentId: {
-      type: Schema.Types.ObjectId,
-      ref: "Category",
-      default: null,
-    },
-    headerCategoryId: {
-      type: Schema.Types.ObjectId,
-      ref: "HeaderCategory",
-      default: null,
-    },
+    }
   },
   {
     timestamps: true,
@@ -96,27 +78,9 @@ const CategorySchema = new Schema<ICategory>(
 CategorySchema.index({ order: 1 });
 CategorySchema.index({ name: 1 });
 CategorySchema.index({ slug: 1 });
-CategorySchema.index({ parentId: 1 });
 CategorySchema.index({ status: 1 });
-CategorySchema.index({ headerCategoryId: 1 });
 // Compound indexes for common queries
 CategorySchema.index({ status: 1, order: 1 }); // For getCategories
-CategorySchema.index({ parentId: 1, status: 1 }); // For getCategoryById subcategories
-
-// Virtual for children count
-CategorySchema.virtual("childrenCount", {
-  ref: "Category",
-  localField: "_id",
-  foreignField: "parentId",
-  count: true,
-});
-
-// Virtual for children
-CategorySchema.virtual("children", {
-  ref: "Category",
-  localField: "_id",
-  foreignField: "parentId",
-});
 
 // Ensure virtuals are included in JSON output
 CategorySchema.set("toJSON", { virtuals: true });
@@ -133,77 +97,9 @@ CategorySchema.pre("save", async function (next) {
   next();
 });
 
-// Instance method to get all descendants
-CategorySchema.methods.getAllDescendants = async function () {
-  const CategoryModel = mongoose.model<ICategory>("Category");
-  const descendants: ICategory[] = [];
-  const children = await CategoryModel.find({ parentId: this._id });
-
-  for (const child of children) {
-    descendants.push(child);
-    const childDescendants = await (child as ICategory).getAllDescendants();
-    descendants.push(...childDescendants);
-  }
-
-  return descendants;
-};
-
 const Category = mongoose.model<ICategory, ICategoryModel>(
   "Category",
   CategorySchema
 );
-
-// Static method to validate parent change (prevent circular references)
-Category.validateParentChange = async function (
-  categoryId: string,
-  newParentId: string | null
-): Promise<{ valid: boolean; error?: string }> {
-  if (!newParentId) {
-    return { valid: true };
-  }
-
-  // Cannot set parent to self
-  if (categoryId === newParentId) {
-    return {
-      valid: false,
-      error: "Cannot set category as its own parent",
-    };
-  }
-
-  // Check if new parent exists
-  const newParent = await Category.findById(newParentId);
-  if (!newParent) {
-    return {
-      valid: false,
-      error: "Parent category not found",
-    };
-  }
-
-  // Check if new parent is active
-  if (newParent.status !== "Active") {
-    return {
-      valid: false,
-      error: "Parent category must be active",
-    };
-  }
-
-  // Check for circular reference: new parent cannot be a descendant
-  const category = await Category.findById(categoryId);
-  if (category) {
-    const descendants = await category.getAllDescendants();
-    const isDescendant = descendants.some(
-      (desc) => desc._id.toString() === newParentId
-    );
-    if (isDescendant) {
-      return {
-        valid: false,
-        error:
-          "Cannot create circular reference: parent cannot be a descendant",
-      };
-    }
-  }
-
-  return { valid: true };
-};
 
 export default Category;

@@ -21,9 +21,9 @@ export function calculateDistance(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -51,7 +51,7 @@ export async function findSellersWithinRange(
     // Fetch all approved sellers with location
     const sellers = await Seller.find({
       status: "Approved",
-    }).select("_id location serviceRadiusKm latitude longitude");
+    }).select("_id location serviceRadiusKm latitude longitude category");
 
     // Filter sellers where user is within their service radius
     const nearbySellerIds: mongoose.Types.ObjectId[] = [];
@@ -67,8 +67,13 @@ export async function findSellersWithinRange(
       }
       // Fallback to string fields if GeoJSON missing
       else if (seller.latitude && seller.longitude) {
-         sellerLat = parseFloat(seller.latitude);
-         sellerLng = parseFloat(seller.longitude);
+        sellerLat = parseFloat(seller.latitude);
+        sellerLng = parseFloat(seller.longitude);
+      }
+
+      if (seller.category === "Admin") {
+        nearbySellerIds.push(seller._id as mongoose.Types.ObjectId);
+        continue;
       }
 
       if (sellerLat !== null && sellerLng !== null && !isNaN(sellerLat) && !isNaN(sellerLng)) {

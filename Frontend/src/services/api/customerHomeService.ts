@@ -7,6 +7,8 @@ export interface HomeContentResponse {
     bestsellers: any[];
     lowestPrices?: any[];
     categories: any[];
+    categoryHierarchy?: any[]; // Category → Subcategory → Product hierarchy
+    homeSections?: any[]; // Kept for backward compatibility (always empty)
     shops: any[];
     promoBanners: any[];
     trending: any[];

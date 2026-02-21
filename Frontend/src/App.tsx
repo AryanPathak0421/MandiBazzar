@@ -119,7 +119,7 @@ const AdminSmsGateway = lazy(() => import("./modules/admin/pages/AdminSmsGateway
 const AdminSystemUser = lazy(() => import("./modules/admin/pages/AdminSystemUser"));
 const AdminUsers = lazy(() => import("./modules/admin/pages/AdminUsers"));
 const AdminFAQ = lazy(() => import("./modules/admin/pages/AdminFAQ"));
-const AdminHomeSection = lazy(() => import("./modules/admin/pages/AdminHomeSection"));
+// AdminHomeSection removed - replaced by Category hierarchy
 const AdminBestsellerCards = lazy(() => import("./modules/admin/pages/AdminBestsellerCards"));
 const AdminPromoStrip = lazy(() => import("./modules/admin/pages/AdminPromoStrip"));
 const AdminLowestPrices = lazy(() => import("./modules/admin/pages/AdminLowestPrices"));
@@ -310,7 +310,7 @@ function App() {
                                         <Route path="" element={<AdminDashboard />} />
                                         <Route path="profile" element={<AdminProfile />} />
                                         <Route path="catalog-manager" element={<AdminCatalogManager />} />
-                                        <Route path="catalog/sections" element={<AdminHomeSection />} />
+                                        {/* catalog/sections route removed - Home Sections feature removed */}
                                         <Route path="category" element={<AdminCategory />} />
                                         <Route path="category/header" element={<AdminHeaderCategory />} />
                                         <Route path="subcategory" element={<AdminSubCategory />} />
@@ -319,6 +319,8 @@ function App() {
                                         <Route path="brand" element={<AdminBrand />} />
                                         <Route path="product/taxes" element={<AdminTaxes />} />
                                         <Route path="product/list" element={<AdminStockManagement />} />
+                                        <Route path="product/add" element={<SellerAddProduct />} />
+                                        <Route path="product/edit/:id" element={<SellerAddProduct />} />
                                         <Route path="manage-seller/list" element={<AdminManageSellerList />} />
                                         <Route path="manage-seller/transaction" element={<AdminSellerTransaction />} />
                                         <Route path="delivery-boy/manage" element={<AdminManageDeliveryBoy />} />
@@ -339,7 +341,7 @@ function App() {
                                         <Route path="delivery-app-policy" element={<AdminDeliveryAppPolicy />} />
                                         <Route path="users" element={<AdminUsers />} />
                                         <Route path="faq" element={<AdminFAQ />} />
-                                        <Route path="home-section" element={<AdminHomeSection readOnly={true} />} />
+                                        {/* home-section route removed - Home Sections feature removed */}
                                         <Route path="bestseller-cards" element={<AdminBestsellerCards />} />
                                         <Route path="promo-strip" element={<AdminPromoStrip />} />
                                         <Route path="lowest-prices" element={<AdminLowestPrices />} />
