@@ -6,6 +6,9 @@ import { getCategories, Category } from '../../../services/api/categoryService';
 import GoogleMapsAutocomplete from '../../../components/GoogleMapsAutocomplete';
 import LocationPickerMap from '../../../components/LocationPickerMap';
 
+
+
+
 const SellerAccountSettings = () => {
   const { user, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
